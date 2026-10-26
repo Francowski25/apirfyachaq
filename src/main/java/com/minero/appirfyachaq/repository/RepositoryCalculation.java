@@ -8,4 +8,6 @@ import java.util.List;
 @Repository
 public interface RepositoryCalculation extends JpaRepository<EntityCalculationHistory, String> {
     List<EntityCalculationHistory> findByIdUserOrderByCalculatedAtDesc(String idUser);
+
+    void deleteByIdUser(String idUser);
 }

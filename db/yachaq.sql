@@ -89,19 +89,6 @@ CREATE TABLE tcalculationHistory (
     FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE
 );
 
-CREATE TABLE ttracking (
-    idTracking char(36) PRIMARY KEY,
-    idUser char(36) NOT NULL,
-    idPlant char(36) NOT NULL,
-    mineral VARCHAR(50) NOT NULL,
-    grossTonnage FLOAT NOT NULL,
-    entryDate DATE NOT NULL,
-    status VARCHAR(50) DEFAULT 'EN PLANTA',
-    daysInPlant INT DEFAULT 0,
-    
-    FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE,
-    FOREIGN KEY (idPlant) REFERENCES tplant(idPlant)
-);
 
 -- =====================================================================
 -- 		INSERTS 
@@ -119,3 +106,6 @@ INSERT INTO tterms VALUES
 INSERT INTO tplant VALUES
 (UUID(), (SELECT idTerm FROM tterms LIMIT 1), 'Planta Minera Yachaq', 'Abancay, Apurímac', 100.0, 45.00, 'Operativa'),
 (UUID(), (SELECT idTerm FROM tterms LIMIT 1), 'Planta Concentradora San José', 'Andahuaylas, Apurímac', 150.0, 50.00, 'Operativa');
+
+select * from tuser;
+select * from tcalculationHistory;

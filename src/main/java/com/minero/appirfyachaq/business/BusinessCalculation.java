@@ -6,9 +6,11 @@ import com.minero.appirfyachaq.dto.response.ResponseHistorial;
 import com.minero.appirfyachaq.entity.EntityCalculationHistory;
 import com.minero.appirfyachaq.entity.EntityPlant;
 import com.minero.appirfyachaq.entity.EntityTerms;
+import com.minero.appirfyachaq.generic.ResponseGeneric;
 import com.minero.appirfyachaq.repository.RepositoryCalculation;
 import com.minero.appirfyachaq.repository.RepositoryPlant;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -59,6 +61,7 @@ public class BusinessCalculation {
             double trasladoPorTmns = t.getTrasladoInterno() / tmns;
 
             double pagoPorTm = pagoCu - t.getMaquila() - reduccionRefinacion - analisisPorTmns - trasladoPorTmns;
+            
             double valorNeto = pagoPorTm * tmns;
             double igv = valorNeto * t.getIgvPorcentaje();
             double valorTotal = valorNeto + igv;
@@ -88,15 +91,25 @@ public class BusinessCalculation {
             response.success("Cálculo realizado correctamente.");
             response.setIdCalculation(historial.getIdCalculation());
             response.setMaterial(request.getMaterial());
+            
             response.setTmHumedas(tmHumedas);
             response.setTmns(tmns);
-            response.setPagoTotal(pagoCu); 
-            response.setTotalAPagar(totalAPagar);
+            
+            response.setContenidoPagableCu(pagableCu);
+            response.setPrecioAjustadoCu(precioAjustadoCu);
+            response.setPagoCu(pagoCu);
+            
+            response.setReduccionRefinacion(reduccionRefinacion);
+            response.setAnalisisPorTmns(analisisPorTmns);
+            response.setTrasladoPorTmns(trasladoPorTmns);
+            response.setPagoPorTm(pagoPorTm);
             
             response.setValorNeto(valorNeto);
             response.setIgv(igv);
+            response.setValorTotal(valorTotal);
             response.setDetraccion(detraccion);
             response.setAlquilerTotal(alquilerTotal);
+            response.setTotalAPagar(totalAPagar);
 
         } catch (Exception e) {
             response.exception("Error al calcular: " + e.getMessage());
@@ -129,4 +142,41 @@ public class BusinessCalculation {
         return responses;
     }
 
+    @Transactional
+    public ResponseGeneric eliminarCalculo(String idUser, String idCalculation) {
+        ResponseGeneric response = new ResponseGeneric() {};
+        
+        Optional<EntityCalculationHistory> opt = calculationRepository.findById(idCalculation);
+
+        if (opt.isEmpty()) {
+            response.error("El cálculo no existe.");
+            return response;
+        }
+
+        if (!opt.get().getIdUser().equals(idUser)) {
+            response.error("No tiene permiso para eliminar este cálculo.");
+            return response;
+        }
+
+        try {
+            calculationRepository.delete(opt.get());
+            response.success("Cálculo eliminado correctamente.");
+        } catch (Exception e) {
+            response.exception("Error al eliminar: " + e.getMessage());
+        }
+        return response;
+    }
+
+    @Transactional
+    public ResponseGeneric eliminarTodoHistorial(String idUser) {
+        ResponseGeneric response = new ResponseGeneric() {};
+        
+        try {
+            calculationRepository.deleteByIdUser(idUser);
+            response.success("Historial eliminado correctamente.");
+        } catch (Exception e) {
+            response.exception("Error al eliminar el historial: " + e.getMessage());
+        }
+        return response;
+    }
 }
