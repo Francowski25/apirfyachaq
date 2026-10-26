@@ -7,11 +7,13 @@ import com.minero.appirfyachaq.entity.EntityTerms;
 import com.minero.appirfyachaq.repository.RepositoryPlant;
 import com.minero.appirfyachaq.repository.RepositoryTerms;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
+@Transactional
 public class BusinessTerms {
 
     private final RepositoryTerms termsRepository;

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: yachaq-java-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: YACHAQ_TOKEN_SECRET
+        generateValue: true
+      - key: YACHAQ_ADMIN_EMAIL
+        sync: false
+      - key: YACHAQ_ADMIN_PASSWORD
+        sync: false
+      - key: DB_DDL_AUTO
+        value: update
