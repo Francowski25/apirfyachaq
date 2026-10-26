@@ -77,7 +77,7 @@ public class BusinessCalculation {
                     .alquilerPlanta(alquilerPlanta)
                     .tmHumedas(tmHumedas)
                     .tmns(tmns)
-                    .pagoTotal(pagoCu) // El "PAGO TOTAL" del Excel (valor bruto)
+                    .pagoTotal(pagoCu)
                     .totalAPagar(totalAPagar)
                     .calculatedAt(LocalDateTime.now())
                     .isSynced(true)

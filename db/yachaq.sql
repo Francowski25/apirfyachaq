@@ -108,7 +108,7 @@ CREATE TABLE ttracking (
 -- =====================================================================
 INSERT INTO tuser VALUES
 (UUID(), 'Carlos Admin', 'admin@yachaq.com', '$2a$12$v0YFGBhHaduV1f4xuuthy.rsDcdr5RmdS8fyt.0/5y4MAeiwe7sjy', 'admin', NOW(), true),
-(UUID(), 'Juan Minero', 'minero@yachaq.com', '$2a$12$QPQGZJv/PnrSB4zlRSKoWeyEat/fxSPDBLuMNNBdRaRlkEqykof3m', 'minero', NOW(), true),
+(UUID(), 'Juan Minero', 'minero@yachaq.com', '$2a$12$KYSLKVbAF3oNLbSRvM.JrO3gnpsDq/PDzCUzyD23OZlO2liInylIi', 'minero', NOW(), true),
 (UUID(), 'Pedro Quispe', 'pedro@gmail.com', '$2a$12$jUNrAOlOkXJv./lsQgqOReI7GSYQlM8fJPNF1uKqzgpTsaTOk1QTW', 'minero', NOW(), true),
 (UUID(), 'Maria Condori', 'maria@gmail.com', '$2a$12$DOgLk2180jYcBqy6uuXQ4eMwOXIk21IQ3e.U4DpC6oiP/x9laB1me', 'minero', NOW(), true),
 (UUID(), 'Luis Suarez', 'luis@gmail.com', '$2a$12$IZIpUHAGAptNe506WpfttO6oHuQl44smVjQ5ShVNZTu2GaqlC4XNS', 'minero', NOW(), false);
