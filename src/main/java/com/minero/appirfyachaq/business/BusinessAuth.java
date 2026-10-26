@@ -16,9 +16,11 @@ import java.util.UUID;
 public class BusinessAuth {
 
     private final RepositoryUser userRepository;
+    private final com.minero.appirfyachaq.security.TokenService tokens;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public BusinessAuth(RepositoryUser userRepository) {
+    public BusinessAuth(RepositoryUser userRepository, com.minero.appirfyachaq.security.TokenService tokens) {
+        this.tokens = tokens;
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
@@ -26,7 +28,7 @@ public class BusinessAuth {
     public ResponseLogin login(RequestLogin request) {
         ResponseLogin response = new ResponseLogin();
 
-        EntityUser user = userRepository.findByEmail(request.getEmail()).orElse(null);
+        EntityUser user = userRepository.findByEmail(request.getEmail().trim().toLowerCase()).orElse(null);
 
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             response.error("Credenciales incorrectas. Verifique su correo y contraseña.");
@@ -44,6 +46,7 @@ public class BusinessAuth {
         response.setEmail(user.getEmail());
         response.setRole(user.getRole());
         response.setIsPremium(false);
+        response.setToken(tokens.create(user.getIdUser()));
 
         return response;
     }
@@ -51,7 +54,7 @@ public class BusinessAuth {
     public ResponseRegister register(RequestRegister request) {
         ResponseRegister response = new ResponseRegister();
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
             response.error("El correo ya está registrado en el sistema.");
             return response;
         }
@@ -59,9 +62,9 @@ public class BusinessAuth {
         EntityUser newUser = EntityUser.builder()
                 .idUser(UUID.randomUUID().toString())
                 .name(request.getName())
-                .email(request.getEmail())
+                .email(request.getEmail().trim().toLowerCase())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role("MINERO") 
+                .role("minero") 
                 .createdAt(LocalDateTime.now())
                 .status(true)
                 .build();
@@ -74,6 +77,7 @@ public class BusinessAuth {
         response.setEmail(newUser.getEmail());
         response.setRole(newUser.getRole());
         response.setIsPremium(false);
+        response.setToken(tokens.create(newUser.getIdUser()));
 
         return response;
     }

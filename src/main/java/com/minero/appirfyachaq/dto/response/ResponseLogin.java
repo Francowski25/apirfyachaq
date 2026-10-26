@@ -11,5 +11,6 @@ public class ResponseLogin extends ResponseGeneric {
     private String name;
     private String email;
     private String role; // 'ADMIN' o 'MINERO'
-    private Boolean isPremium; 
+    private Boolean isPremium;
+    private String token; 
 }

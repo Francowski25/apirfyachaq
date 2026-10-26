@@ -1,0 +1,10 @@
+bin/
+target/
+.git/
+.idea/
+*.class
+*.log
+README*.md
+db/
+*.env
+.env

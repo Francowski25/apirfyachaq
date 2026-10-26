@@ -12,4 +12,5 @@ public class ResponseRegister extends ResponseGeneric {
     private String email;
     private String role;
     private Boolean isPremium;
+    private String token;
 }
