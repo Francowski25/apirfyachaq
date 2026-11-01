@@ -16,6 +16,13 @@ public class ResponseCalculation extends ResponseGeneric {
     private Double contenidoPagableCu;
     private Double precioAjustadoCu;
     private Double pagoCu;
+    private Double contenidoPagableAg;
+    private Double precioAjustadoAg;
+    private Double pagoAg;
+    private Double contenidoPagableAu;
+    private Double precioAjustadoAu;
+    private Double pagoAu;
+    private Double pagoTotal;
     
     private Double reduccionRefinacion;
     private Double analisisPorTmns;

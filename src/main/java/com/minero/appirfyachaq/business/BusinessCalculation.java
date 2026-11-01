@@ -55,13 +55,29 @@ public class BusinessCalculation {
             double precioAjustadoCu = 1000 * Math.max(0, request.getPrecio() - t.getGastosRefCu()) / 0.45359;
             double pagoCu = pagableCu * precioAjustadoCu;
 
+            // AG y AU: contenido pagable = ley x porcentaje pagable (90 % por defecto).
+            double leyAg = request.getLeyAg() == null ? 0.0 : request.getLeyAg();
+            double leyAu = request.getLeyAu() == null ? 0.0 : request.getLeyAu();
+            double contenidoPagableAg = leyAg * (t.getPagableAg() / 100);
+            double contenidoPagableAu = leyAu * (t.getPagableAu() / 100);
+
+            double precioAg = request.getPrecioAg() == null ? 0.0 : request.getPrecioAg();
+            double precioAu = request.getPrecioAu() == null ? 0.0 : request.getPrecioAu();
+            double precioAjustadoAg = precioAg - t.getDeduccionAg();
+            double precioAjustadoAu = precioAu - t.getDeduccionAu();
+            double pagoAg = contenidoPagableAg * precioAjustadoAg;
+            double pagoAu = contenidoPagableAu * precioAjustadoAu;
+
+            // Condición solicitada: Ag y Au se suman al valor de Cu solo si Cu es pagable (> 0).
+            double pagoTotal = pagableCu > 0 ? pagoCu + pagoAg + pagoAu : pagoCu;
+
             double gastosRefCuPorTm = 1000 * t.getGastosRefCu() / 0.45359;
             double reduccionRefinacion = pagableCu * gastosRefCuPorTm;
             
             double analisisPorTmns = t.getAnalisis() / tmns;
             double trasladoPorTmns = t.getTrasladoInterno() / tmns;
 
-            double pagoPorTm = pagoCu - t.getMaquila() - reduccionRefinacion - analisisPorTmns - trasladoPorTmns;
+            double pagoPorTm = pagoTotal - t.getMaquila() - reduccionRefinacion - analisisPorTmns - trasladoPorTmns;
             
             double valorNeto = pagoPorTm * tmns;
             double igv = valorNeto * t.getIgvPorcentaje();
@@ -81,7 +97,7 @@ public class BusinessCalculation {
                     .alquilerPlanta(alquilerPlanta)
                     .tmHumedas(tmHumedas)
                     .tmns(tmns)
-                    .pagoTotal(pagoCu)
+                    .pagoTotal(pagoTotal)
                     .totalAPagar(totalAPagar)
                     .calculatedAt(LocalDateTime.now())
                     .isSynced(true)
@@ -99,6 +115,13 @@ public class BusinessCalculation {
             response.setContenidoPagableCu(pagableCu);
             response.setPrecioAjustadoCu(precioAjustadoCu);
             response.setPagoCu(pagoCu);
+            response.setContenidoPagableAg(contenidoPagableAg);
+            response.setPrecioAjustadoAg(precioAjustadoAg);
+            response.setPagoAg(pagoAg);
+            response.setContenidoPagableAu(contenidoPagableAu);
+            response.setPrecioAjustadoAu(precioAjustadoAu);
+            response.setPagoAu(pagoAu);
+            response.setPagoTotal(pagoTotal);
             
             response.setReduccionRefinacion(reduccionRefinacion);
             response.setAnalisisPorTmns(analisisPorTmns);
