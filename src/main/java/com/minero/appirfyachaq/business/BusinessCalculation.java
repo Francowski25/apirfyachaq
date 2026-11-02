@@ -9,6 +9,8 @@ import com.minero.appirfyachaq.entity.EntityTerms;
 import com.minero.appirfyachaq.generic.ResponseGeneric;
 import com.minero.appirfyachaq.repository.RepositoryCalculation;
 import com.minero.appirfyachaq.repository.RepositoryPlant;
+import com.minero.appirfyachaq.repository.RepositoryUser;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,15 +26,27 @@ public class BusinessCalculation {
 
     private final RepositoryCalculation calculationRepository;
     private final RepositoryPlant plantRepository;
+    private final RepositoryUser userRepository;
+    
+    private static final double OZ_A_GR = 31.1035;
+    private static final double LB_A_KG = 0.45359;
 
-    public BusinessCalculation(RepositoryCalculation calculationRepository, RepositoryPlant plantRepository) {
+    public BusinessCalculation(RepositoryCalculation calculationRepository, RepositoryPlant plantRepository,
+    		RepositoryUser userRepository) {
         this.calculationRepository = calculationRepository;
         this.plantRepository = plantRepository;
+        this.userRepository = userRepository;
+
     }
 
     public ResponseCalculation calcular(RequestCalculation request) {
         ResponseCalculation response = new ResponseCalculation();
 
+        if (request.getIdUser() == null || !userRepository.existsById(request.getIdUser())) {
+            response.error("El usuario no existe.");
+            return response;
+        }
+        
         Optional<EntityPlant> optPlant = plantRepository.findById(request.getIdPlant());
         if (optPlant.isEmpty()) {
             response.error("Planta no encontrada.");
@@ -52,26 +66,32 @@ public class BusinessCalculation {
             }
 
             double pagableCu = ((t.getLeyConcentradoCu() - t.getDeduccionCu()) / 100) * (t.getPagableCu() / 100);
-            double precioAjustadoCu = 1000 * Math.max(0, request.getPrecio() - t.getGastosRefCu()) / 0.45359;
+            double precioAjustadoCu = 1000 * Math.max(0, request.getPrecio() - t.getGastosRefCu()) / LB_A_KG;
             double pagoCu = pagableCu * precioAjustadoCu;
 
-            // AG y AU: contenido pagable = ley x porcentaje pagable (90 % por defecto).
-            double leyAg = request.getLeyAg() == null ? 0.0 : request.getLeyAg();
-            double leyAu = request.getLeyAu() == null ? 0.0 : request.getLeyAu();
-            double contenidoPagableAg = leyAg * (t.getPagableAg() / 100);
-            double contenidoPagableAu = leyAu * (t.getPagableAu() / 100);
+            double pagoAg = 0.0;
+            double contenidoPagableAg = 0.0;
+            double precioAjustadoAg = 0.0;
+            if (request.getLeyAg() != null && request.getLeyAg() > 0) {
+                double agGramos = request.getLeyAg() * OZ_A_GR;
+                contenidoPagableAg = Math.max(0, agGramos - t.getDeduccionAg()) / OZ_A_GR;
+                precioAjustadoAg = Math.max(0, (request.getPrecioAg() != null ? request.getPrecioAg() : 0.0) - t.getGastosRefAg());
+                pagoAg = contenidoPagableAg * (t.getPagableAg() / 100) * precioAjustadoAg;
+            }
 
-            double precioAg = request.getPrecioAg() == null ? 0.0 : request.getPrecioAg();
-            double precioAu = request.getPrecioAu() == null ? 0.0 : request.getPrecioAu();
-            double precioAjustadoAg = precioAg - t.getDeduccionAg();
-            double precioAjustadoAu = precioAu - t.getDeduccionAu();
-            double pagoAg = contenidoPagableAg * precioAjustadoAg;
-            double pagoAu = contenidoPagableAu * precioAjustadoAu;
+            double pagoAu = 0.0;
+            double contenidoPagableAu = 0.0;
+            double precioAjustadoAu = 0.0;
+            if (request.getLeyAu() != null && request.getLeyAu() > 0) {
+                double auGramos = request.getLeyAu() * OZ_A_GR;
+                contenidoPagableAu = Math.max(0, auGramos - t.getDeduccionAu()) / OZ_A_GR;
+                precioAjustadoAu = Math.max(0, (request.getPrecioAu() != null ? request.getPrecioAu() : 0.0) - t.getGastosRefAu());
+                pagoAu = contenidoPagableAu * (t.getPagableAu() / 100) * precioAjustadoAu;
+            }
 
-            // Condición solicitada: Ag y Au se suman al valor de Cu solo si Cu es pagable (> 0).
-            double pagoTotal = pagableCu > 0 ? pagoCu + pagoAg + pagoAu : pagoCu;
+            double pagoTotal = pagoCu + pagoAg + pagoAu;
 
-            double gastosRefCuPorTm = 1000 * t.getGastosRefCu() / 0.45359;
+            double gastosRefCuPorTm = 1000 * t.getGastosRefCu() / LB_A_KG;
             double reduccionRefinacion = pagableCu * gastosRefCuPorTm;
             
             double analisisPorTmns = t.getAnalisis() / tmns;
@@ -97,7 +117,7 @@ public class BusinessCalculation {
                     .alquilerPlanta(alquilerPlanta)
                     .tmHumedas(tmHumedas)
                     .tmns(tmns)
-                    .pagoTotal(pagoTotal)
+                    .pagoTotal(valorNeto)
                     .totalAPagar(totalAPagar)
                     .calculatedAt(LocalDateTime.now())
                     .isSynced(true)
@@ -115,13 +135,16 @@ public class BusinessCalculation {
             response.setContenidoPagableCu(pagableCu);
             response.setPrecioAjustadoCu(precioAjustadoCu);
             response.setPagoCu(pagoCu);
+            
             response.setContenidoPagableAg(contenidoPagableAg);
             response.setPrecioAjustadoAg(precioAjustadoAg);
             response.setPagoAg(pagoAg);
+            
             response.setContenidoPagableAu(contenidoPagableAu);
             response.setPrecioAjustadoAu(precioAjustadoAu);
             response.setPagoAu(pagoAu);
-            response.setPagoTotal(pagoTotal);
+            
+            response.setPagoTotal(valorNeto);
             
             response.setReduccionRefinacion(reduccionRefinacion);
             response.setAnalisisPorTmns(analisisPorTmns);
@@ -144,13 +167,11 @@ public class BusinessCalculation {
 
     public List<ResponseHistorial> listarHistorial(String idUser) {
         List<EntityCalculationHistory> historial = calculationRepository.findByIdUserOrderByCalculatedAtDesc(idUser);
-        
         List<ResponseHistorial> responses = new ArrayList<>();
 
         for (EntityCalculationHistory h : historial) {
             ResponseHistorial res = new ResponseHistorial();
             res.success("OK");
-            
             res.setIdCalculation(h.getIdCalculation());
             res.setMaterial(h.getMaterial());
             res.setTonelaje(h.getTonelaje());
@@ -159,17 +180,13 @@ public class BusinessCalculation {
             res.setTmns(h.getTmns());
             res.setTotalAPagar(h.getTotalAPagar());
             res.setCalculatedAt(h.getCalculatedAt());
-            
             responses.add(res);
         }
-
         return responses;
     }
 
-    @Transactional
     public ResponseGeneric eliminarCalculo(String idUser, String idCalculation) {
         ResponseGeneric response = new ResponseGeneric() {};
-        
         Optional<EntityCalculationHistory> opt = calculationRepository.findById(idCalculation);
 
         if (opt.isEmpty()) {
@@ -191,10 +208,8 @@ public class BusinessCalculation {
         return response;
     }
 
-    @Transactional
     public ResponseGeneric eliminarTodoHistorial(String idUser) {
         ResponseGeneric response = new ResponseGeneric() {};
-        
         try {
             calculationRepository.deleteByIdUser(idUser);
             response.success("Historial eliminado correctamente.");

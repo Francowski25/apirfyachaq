@@ -36,3 +36,4 @@ build/
 *.pem
 *.p12
 *.jks
+application-local.properties
