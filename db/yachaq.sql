@@ -66,7 +66,6 @@ CREATE TABLE tplant (
     rentalCostPerTM FLOAT NOT NULL,
     status ENUM('Operativa', 'Mantenimiento') DEFAULT 'Operativa',
     
-    -- Llave foránea: Si borras una planta, se borran sus términos
     CONSTRAINT fk_plant_terms FOREIGN KEY (idTerm) REFERENCES tterms(idTerm) ON DELETE CASCADE
 );
 
@@ -89,6 +88,14 @@ CREATE TABLE tcalculationHistory (
     FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE
 );
 
+CREATE TABLE tmarketPrice (
+    idMarketPrice varchar(36)   primary key,
+    metal VARCHAR(10)     NOT NULL,
+    price NUMERIC(18,6)   NOT NULL,
+    updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	CONSTRAINT uq_market_price_metal UNIQUE (metal),
+    CONSTRAINT ck_market_price_price CHECK (price > 0)
+);
 
 -- =====================================================================
 -- 		INSERTS 
@@ -107,5 +114,10 @@ INSERT INTO tplant VALUES
 (UUID(), (SELECT idTerm FROM tterms LIMIT 1), 'Planta Minera Yachaq', 'Abancay, Apurímac', 100.0, 45.00, 'Operativa'),
 (UUID(), (SELECT idTerm FROM tterms LIMIT 1), 'Planta Concentradora San José', 'Andahuaylas, Apurímac', 150.0, 50.00, 'Operativa');
 
+INSERT INTO tmarketPrice VALUES
+(UUID(), 'CU', 4.250000,   CURRENT_TIMESTAMP),
+(UUID(), 'AG', 31.500000,  CURRENT_TIMESTAMP),
+(UUID(), 'AU', 2350.000000, CURRENT_TIMESTAMP);
+    
 select * from tuser;
 select * from tcalculationHistory;

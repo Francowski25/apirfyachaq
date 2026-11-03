@@ -11,10 +11,7 @@ public class RequestCalculation {
     private String material;
     private Double tonelaje;
     private Double ley;
-    private Double precio;
-
+    private Double tmConcentrado;
     private Double leyAg;
-    private Double precioAg;
     private Double leyAu;
-    private Double precioAu;
 }
