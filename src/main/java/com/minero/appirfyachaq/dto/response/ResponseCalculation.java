@@ -9,10 +9,10 @@ import lombok.Setter;
 public class ResponseCalculation extends ResponseGeneric {
     private String idCalculation;
     private String material;
-    
+
     private Double tmHumedas;
     private Double tmns;
-    
+
     private Double contenidoPagableCu;
     private Double precioAjustadoCu;
     private Double pagoCu;
@@ -23,16 +23,17 @@ public class ResponseCalculation extends ResponseGeneric {
     private Double precioAjustadoAu;
     private Double pagoAu;
     private Double pagoTotal;
-    
+
     private Double reduccionRefinacion;
     private Double analisisPorTmns;
     private Double trasladoPorTmns;
     private Double pagoPorTm;
-    
+
     private Double valorNeto;
     private Double igv;
     private Double valorTotal;
     private Double detraccion;
     private Double alquilerTotal;
+    private Double adelanto;
     private Double totalAPagar;
 }

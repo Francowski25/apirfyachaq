@@ -10,8 +10,8 @@ public class RequestCalculation {
     private String idPlant;
     private String material;
     private Double tonelaje;
-    private Double ley;
-    private Double tmConcentrado;
+    private Double leyCu;
     private Double leyAg;
     private Double leyAu;
+    private Double adelanto;
 }

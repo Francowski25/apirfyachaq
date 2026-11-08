@@ -29,7 +29,6 @@ public class BusinessCalculation {
     private final RepositoryUser userRepository;
     private final BusinessMarketPrice businessMarketPrice;
 
-    private static final double OZ_A_GR = 31.1035;
     private static final double LB_A_KG = 0.45359;
 
     public BusinessCalculation(RepositoryCalculation calculationRepository,
@@ -44,6 +43,12 @@ public class BusinessCalculation {
 
     private double valor(Double d) {
         return d != null ? d : 0.0;
+    }
+
+    private double precio(String metal) {
+        return businessMarketPrice.obtenerPrecio(metal)
+                .map(BigDecimal::doubleValue)
+                .orElse(0.0);
     }
 
     public ResponseCalculation calcular(RequestCalculation request) {
@@ -69,9 +74,10 @@ public class BusinessCalculation {
 
         try {
             double tonelaje = valor(request.getTonelaje());
-            double leyCu = valor(request.getLey());
+            double leyCu = valor(request.getLeyCu());
             double leyAg = valor(request.getLeyAg());
             double leyAu = valor(request.getLeyAu());
+            double adelanto = valor(request.getAdelanto());
 
             if (tonelaje <= 0) {
                 response.error("El tonelaje debe ser mayor que cero.");
@@ -89,9 +95,7 @@ public class BusinessCalculation {
 
             double precioCu = 0.0;
             if (hayCu) {
-                precioCu = businessMarketPrice.obtenerPrecio("CU")
-                        .map(BigDecimal::doubleValue)
-                        .orElse(0.0);
+                precioCu = precio("CU");
                 if (precioCu <= 0) {
                     response.error("No hay precio configurado para el cobre (CU).");
                     return response;
@@ -100,9 +104,7 @@ public class BusinessCalculation {
 
             double precioAg = 0.0;
             if (hayAg) {
-                precioAg = businessMarketPrice.obtenerPrecio("AG")
-                        .map(BigDecimal::doubleValue)
-                        .orElse(0.0);
+                precioAg = precio("AG");
                 if (precioAg <= 0) {
                     response.error("No hay precio configurado para la plata (AG).");
                     return response;
@@ -111,55 +113,54 @@ public class BusinessCalculation {
 
             double precioAu = 0.0;
             if (hayAu) {
-                precioAu = businessMarketPrice.obtenerPrecio("AU")
-                        .map(BigDecimal::doubleValue)
-                        .orElse(0.0);
+                precioAu = precio("AU");
                 if (precioAu <= 0) {
                     response.error("No hay precio configurado para el oro (AU).");
                     return response;
                 }
             }
 
-            double leyBase = hayCu ? leyCu : 1.0;
-            double tmHumedas = tonelaje * leyBase * t.getFactorConcentrado() / 100;
-            double tmns = tmHumedas - (t.getMerma() / 100) - (tmHumedas * t.getHumedad() / 100);
+            double tmHumedas = tonelaje * leyCu * t.getFactorConcentrado() / 100;
+            double tmns = hayCu
+                    ? tmHumedas - t.getMerma() / 100 - tmHumedas * t.getHumedad() / 100
+                    : tonelaje - tonelaje * t.getHumedad() / 100;
 
             if (tmns <= 0) {
                 response.error("El cálculo no generó concentrado válido.");
                 return response;
             }
 
-            double pagableCu = 0.0;
+            double contenidoPagableCu = 0.0;
             double precioAjustadoCu = 0.0;
             double pagoCu = 0.0;
             if (hayCu) {
-                pagableCu = ((t.getLeyConcentradoCu() - t.getDeduccionCu()) / 100) * (t.getPagableCu() / 100);
-                precioAjustadoCu = 1000 * Math.max(0, precioCu - t.getProteccionCu()) / LB_A_KG;
-                pagoCu = pagableCu * precioAjustadoCu;
+                contenidoPagableCu = (t.getLeyConcentradoCu() - t.getDeduccionCu()) / 100 * (t.getPagableCu() / 100);
+                precioAjustadoCu = 1000 * (precioCu - t.getProteccionCu()) / LB_A_KG;
+                pagoCu = contenidoPagableCu * precioAjustadoCu;
             }
 
             double contenidoPagableAg = 0.0;
-            double precioAjustadoAg = hayAg ? precioAg : 0.0;
+            double precioAjustadoAg = 0.0;
             double pagoAg = 0.0;
             if (hayAg) {
-                contenidoPagableAg = Math.max(0, leyAg * OZ_A_GR - t.getDeduccionAg())
-                        / OZ_A_GR * (t.getPagableAg() / 100);
-                pagoAg = contenidoPagableAg * precioAg;
+                contenidoPagableAg = leyAg * t.getPagableAg() / 100;
+                precioAjustadoAg = precioAg - t.getDeduccionAg();
+                pagoAg = contenidoPagableAg * precioAjustadoAg;
             }
 
             double contenidoPagableAu = 0.0;
-            double precioAjustadoAu = hayAu ? precioAu : 0.0;
+            double precioAjustadoAu = 0.0;
             double pagoAu = 0.0;
             if (hayAu) {
-                contenidoPagableAu = Math.max(0, leyAu * OZ_A_GR - t.getDeduccionAu())
-                        / OZ_A_GR * (t.getPagableAu() / 100);
-                pagoAu = contenidoPagableAu * precioAu;
+                contenidoPagableAu = leyAu * t.getPagableAu() / 100;
+                precioAjustadoAu = precioAu - t.getDeduccionAu();
+                pagoAu = contenidoPagableAu * precioAjustadoAu;
             }
 
             double pagoTotal = pagoCu + pagoAg + pagoAu;
 
             double gastosRefCuPorTm = 1000 * t.getGastosRefCu() / LB_A_KG;
-            double reduccionRefinacion = pagableCu * gastosRefCuPorTm
+            double reduccionRefinacion = contenidoPagableCu * gastosRefCuPorTm
                     + contenidoPagableAg * t.getGastosRefAg()
                     + contenidoPagableAu * t.getGastosRefAu();
 
@@ -174,15 +175,20 @@ public class BusinessCalculation {
             double detraccion = valorTotal * t.getDetraccionPorcentaje();
             double alquilerTotal = alquilerPlanta * tonelaje;
 
-            double totalAPagar = valorTotal - detraccion - alquilerTotal;
+            double totalAPagar = valorTotal - detraccion - alquilerTotal - adelanto;
 
             EntityCalculationHistory historial = EntityCalculationHistory.builder()
                     .idCalculation(UUID.randomUUID().toString())
                     .idUser(request.getIdUser())
                     .material(request.getMaterial())
                     .tonelaje(tonelaje)
-                    .ley(leyCu)
-                    .precio(precioCu)
+                    .leyCu(leyCu)
+                    .leyAg(leyAg)
+                    .leyAu(leyAu)
+                    .precioCu(precioCu)
+                    .precioAg(precioAg)
+                    .precioAu(precioAu)
+                    .adelanto(adelanto)
                     .alquilerPlanta(alquilerPlanta)
                     .tmHumedas(tmHumedas)
                     .tmns(tmns)
@@ -201,7 +207,7 @@ public class BusinessCalculation {
             response.setTmHumedas(tmHumedas);
             response.setTmns(tmns);
 
-            response.setContenidoPagableCu(pagableCu);
+            response.setContenidoPagableCu(contenidoPagableCu);
             response.setPrecioAjustadoCu(precioAjustadoCu);
             response.setPagoCu(pagoCu);
 
@@ -225,6 +231,7 @@ public class BusinessCalculation {
             response.setValorTotal(valorTotal);
             response.setDetraccion(detraccion);
             response.setAlquilerTotal(alquilerTotal);
+            response.setAdelanto(adelanto);
             response.setTotalAPagar(totalAPagar);
 
         } catch (Exception e) {
@@ -244,8 +251,8 @@ public class BusinessCalculation {
             res.setIdCalculation(h.getIdCalculation());
             res.setMaterial(h.getMaterial());
             res.setTonelaje(h.getTonelaje());
-            res.setLey(h.getLey());
-            res.setPrecio(h.getPrecio());
+            res.setLey(h.getLeyCu());
+            res.setPrecio(h.getPrecioCu());
             res.setTmns(h.getTmns());
             res.setTotalAPagar(h.getTotalAPagar());
             res.setCalculatedAt(h.getCalculatedAt());

@@ -24,11 +24,26 @@ public class EntityCalculationHistory {
     @Column(name = "tonelaje", nullable = false)
     private Double tonelaje;
 
-    @Column(name = "ley", nullable = false)
-    private Double ley;
+    @Column(name = "leyCu", nullable = false)
+    private Double leyCu;
 
-    @Column(name = "precio", nullable = false)
-    private Double precio;
+    @Column(name = "leyAg", nullable = false)
+    private Double leyAg;
+
+    @Column(name = "leyAu", nullable = false)
+    private Double leyAu;
+
+    @Column(name = "precioAg", nullable = false)
+    private Double precioAg;
+
+    @Column(name = "precioAu", nullable = false)
+    private Double precioAu;
+
+    @Column(name = "adelanto", nullable = false)
+    private Double adelanto;
+
+    @Column(name = "precioCu", nullable = false)
+    private Double precioCu;
 
     @Column(name = "alquilerPlanta", nullable = false)
     private Double alquilerPlanta;
