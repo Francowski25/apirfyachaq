@@ -1,4 +1,3 @@
-/*
 DROP TABLE IF EXISTS tcalculationHistory CASCADE;
 DROP TABLE IF EXISTS tmarketPrice CASCADE;
 DROP TABLE IF EXISTS tplant CASCADE;
@@ -8,7 +7,7 @@ DROP TABLE IF EXISTS tuser CASCADE;
 DROP TYPE IF EXISTS user_role;
 DROP TYPE IF EXISTS sub_status;
 DROP TYPE IF EXISTS plant_status;
-*/
+
 
 -- =====================================================================
 --      TABLAS
