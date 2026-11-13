@@ -1,13 +1,14 @@
+DROP TABLE IF EXISTS tuserTerms CASCADE;
 DROP TABLE IF EXISTS tcalculationHistory CASCADE;
 DROP TABLE IF EXISTS tmarketPrice CASCADE;
 DROP TABLE IF EXISTS tplant CASCADE;
 DROP TABLE IF EXISTS tterms CASCADE;
 DROP TABLE IF EXISTS tsubscription CASCADE;
 DROP TABLE IF EXISTS tuser CASCADE;
+DROP TABLE IF EXISTS tuserFavorite CASCADE;
 DROP TYPE IF EXISTS user_role;
 DROP TYPE IF EXISTS sub_status;
 DROP TYPE IF EXISTS plant_status;
-
 
 -- =====================================================================
 --      TABLAS
@@ -19,7 +20,10 @@ CREATE TABLE tuser (
     password VARCHAR(255) NOT NULL,
     role VARCHAR(10) NOT NULL DEFAULT 'minero' CHECK (role IN ('admin', 'minero')),
     createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status BOOLEAN DEFAULT TRUE
+    status BOOLEAN DEFAULT TRUE,
+  	resetCodeHash VARCHAR(100),
+  	resetCodeExpiresAt TIMESTAMP,
+  	resetAttempts INT DEFAULT 0
 );
 
 CREATE TABLE tsubscription (
@@ -80,6 +84,47 @@ CREATE TABLE tplant (
     CONSTRAINT fk_plant_terms FOREIGN KEY (idTerm) REFERENCES tterms(idTerm) ON DELETE CASCADE
 );
 
+-- Términos personalizados por minero y planta (si no existe fila, se usan los de tterms)
+CREATE TABLE tuserTerms (
+    idUserTerm VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    idUser VARCHAR(36) NOT NULL,
+    idPlant VARCHAR(36) NOT NULL,
+
+    factorConcentrado FLOAT NOT NULL,
+    humedad FLOAT NOT NULL,
+    merma FLOAT NOT NULL,
+
+    leyConcentradoCu FLOAT NOT NULL,
+    leyConcentradoAg FLOAT NOT NULL,
+    leyConcentradoAu FLOAT NOT NULL,
+
+    pagableCu FLOAT NOT NULL,
+    deduccionCu FLOAT NOT NULL,
+    gastosRefCu FLOAT NOT NULL,
+    proteccionCu FLOAT NOT NULL,
+
+    pagableAg FLOAT NOT NULL,
+    deduccionAg FLOAT NOT NULL,
+    gastosRefAg FLOAT NOT NULL,
+
+    pagableAu FLOAT NOT NULL,
+    deduccionAu FLOAT NOT NULL,
+    gastosRefAu FLOAT NOT NULL,
+
+    maquila FLOAT NOT NULL,
+    analisis FLOAT NOT NULL,
+    trasladoInterno FLOAT NOT NULL,
+
+    igvPorcentaje FLOAT NOT NULL,
+    detraccionPorcentaje FLOAT NOT NULL,
+
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_userterms_user FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE,
+    CONSTRAINT fk_userterms_plant FOREIGN KEY (idPlant) REFERENCES tplant(idPlant) ON DELETE CASCADE,
+    CONSTRAINT uq_userterms_user_plant UNIQUE (idUser, idPlant)
+);
+
 CREATE TABLE tcalculationHistory (
     idCalculation VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     idUser VARCHAR(36) NOT NULL,
@@ -102,6 +147,17 @@ CREATE TABLE tcalculationHistory (
     calculatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     isSynced BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE
+);
+
+CREATE TABLE tuserFavorite (
+    idUserFavorite VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    idUser VARCHAR(36) NOT NULL,
+    idPlant VARCHAR(36) NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_userfavorite_user FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE,
+    CONSTRAINT fk_userfavorite_plant FOREIGN KEY (idPlant) REFERENCES tplant(idPlant) ON DELETE CASCADE,
+    CONSTRAINT uq_userfavorite_user_plant UNIQUE (idUser, idPlant)
 );
 
 CREATE TABLE tmarketPrice (
@@ -137,3 +193,5 @@ INSERT INTO tmarketPrice (metal, price, updatedAt) VALUES
 
 SELECT * FROM tuser;
 SELECT * FROM tcalculationHistory;
+SELECT * FROM tmarketPrice;
+SELECT * FROM tuserTerms;

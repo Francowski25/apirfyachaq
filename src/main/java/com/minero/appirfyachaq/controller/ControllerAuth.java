@@ -1,10 +1,14 @@
 package com.minero.appirfyachaq.controller;
 
 import com.minero.appirfyachaq.business.BusinessAuth;
+import com.minero.appirfyachaq.dto.request.RequestForgotPassword;
 import com.minero.appirfyachaq.dto.request.RequestLogin;
 import com.minero.appirfyachaq.dto.request.RequestRegister;
+import com.minero.appirfyachaq.dto.request.RequestResetPassword;
+import com.minero.appirfyachaq.dto.response.ResponseForgotPassword;
 import com.minero.appirfyachaq.dto.response.ResponseLogin;
 import com.minero.appirfyachaq.dto.response.ResponseRegister;
+import com.minero.appirfyachaq.dto.response.ResponseResetPassword;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +35,18 @@ public class ControllerAuth {
     @PostMapping(path = "register")
     public ResponseEntity<ResponseRegister> register(@Valid @RequestBody RequestRegister request) {
         ResponseRegister response = businessAuth.register(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(path = "forgot-password")
+    public ResponseEntity<ResponseForgotPassword> forgotPassword(@Valid @RequestBody RequestForgotPassword request) {
+        ResponseForgotPassword response = businessAuth.forgotPassword(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(path = "reset-password")
+    public ResponseEntity<ResponseResetPassword> resetPassword(@Valid @RequestBody RequestResetPassword request) {
+        ResponseResetPassword response = businessAuth.resetPassword(request);
         return ResponseEntity.ok(response);
     }
 }

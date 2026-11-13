@@ -36,4 +36,13 @@ public class EntityUser {
 
     @Column(name = "status")
     private Boolean status;
+    
+    @Column(name = "resetCodeHash", length = 100)
+    private String resetCodeHash;
+
+    @Column(name = "resetCodeExpiresAt")
+    private LocalDateTime resetCodeExpiresAt;
+
+    @Column(name = "resetAttempts")
+    private Integer resetAttempts;
 }

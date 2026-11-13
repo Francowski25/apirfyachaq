@@ -23,7 +23,8 @@ public class SecurityConfig {
             .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/health").permitAll()
-                .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/register",
+                        "/auth/forgot-password", "/auth/reset-password").permitAll()
                 .requestMatchers("/user/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/plant/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/plant/**").hasRole("ADMIN")

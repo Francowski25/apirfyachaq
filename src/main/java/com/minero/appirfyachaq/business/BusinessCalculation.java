@@ -28,17 +28,20 @@ public class BusinessCalculation {
     private final RepositoryPlant plantRepository;
     private final RepositoryUser userRepository;
     private final BusinessMarketPrice businessMarketPrice;
+    private final BusinessUserTerms businessUserTerms;
 
     private static final double LB_A_KG = 0.45359;
 
     public BusinessCalculation(RepositoryCalculation calculationRepository,
                                RepositoryPlant plantRepository,
                                RepositoryUser userRepository,
-                               BusinessMarketPrice businessMarketPrice) {
+                               BusinessMarketPrice businessMarketPrice,
+                               BusinessUserTerms businessUserTerms) {
         this.calculationRepository = calculationRepository;
         this.plantRepository = plantRepository;
         this.userRepository = userRepository;
         this.businessMarketPrice = businessMarketPrice;
+        this.businessUserTerms = businessUserTerms;
     }
 
     private double valor(Double d) {
@@ -65,7 +68,7 @@ public class BusinessCalculation {
             return response;
         }
 
-        EntityTerms t = optPlant.get().getTerms();
+        EntityTerms t = businessUserTerms.obtenerTerminos(request.getIdUser(), optPlant.get());
         if (t == null) {
             response.error("La planta no tiene términos configurados.");
             return response;
