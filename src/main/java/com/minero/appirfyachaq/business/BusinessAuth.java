@@ -12,10 +12,10 @@ import com.minero.appirfyachaq.entity.EntityUser;
 import com.minero.appirfyachaq.repository.RepositoryUser;
 import com.minero.appirfyachaq.security.TokenService;
 
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -35,14 +35,16 @@ public class BusinessAuth {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
-    private static final int CODE_MINUTES = 15;
+    private static final int CODE_MINUTES = 10;
     private static final int COOLDOWN_SECONDS = 60;
     private static final int MAX_ATTEMPTS = 5;
+    private static final String OTP_TEMPLATE_ID = "verification-otp";
+    private static final String APP_NAME = "Minero Yachaq";
 
     @Value("${resend.api-key:}")
     private String resendApiKey;
 
-    @Value("${resend.from:onboarding@resend.dev}")
+    @Value("${resend.from:MiApp <noreply@francotaype.me>}")
     private String resendFrom;
 
     private final RepositoryUser userRepository;
@@ -156,16 +158,10 @@ public class BusinessAuth {
 
         userRepository.save(user);
 
-        String error = sendEmail(
+        String error = sendOtpTemplateEmail(
                 user.getEmail(),
-                "Código de recuperación - Minero Yachaq",
-                "Hola,\n\n"
-                        + "Has solicitado recuperar tu contraseña.\n\n"
-                        + "Tu código de verificación es: " + code + "\n\n"
-                        + "Este código vence en " + CODE_MINUTES + " minutos.\n\n"
-                        + "Si no solicitaste este cambio, ignora este mensaje.\n\n"
-                        + "Saludos,\n"
-                        + "Equipo Minero Yachaq"
+                user.getName(),
+                code
         );
 
         if (error != null) {
@@ -235,18 +231,27 @@ public class BusinessAuth {
         return response;
     }
 
-    private String sendEmail(String email, String subject, String messageText) {
+    private String sendOtpTemplateEmail(String email, String userName, String otpCode) {
 
         if (resendApiKey == null || resendApiKey.isBlank()) {
             return "El servicio de correo no está configurado.";
         }
 
         try {
+            String safeName = (userName != null && !userName.isBlank()) ? userName : "Usuario";
 
-            String body = "{\"from\":\"" + esc(resendFrom) + "\","
+            String body = "{"
+                    + "\"from\":\"" + esc(resendFrom) + "\","
                     + "\"to\":[\"" + esc(email) + "\"],"
-                    + "\"subject\":\"" + esc(subject) + "\","
-                    + "\"text\":\"" + esc(messageText) + "\"}";
+                    + "\"template\":{"
+                    + "\"id\":\"" + esc(OTP_TEMPLATE_ID) + "\","
+                    + "\"variables\":{"
+                    + "\"app_name\":\"" + esc(APP_NAME) + "\","
+                    + "\"user_name\":\"" + esc(safeName) + "\","
+                    + "\"otp_code\":\"" + esc(otpCode) + "\""
+                    + "}"
+                    + "}"
+                    + "}";
 
             HttpRequest request = HttpRequest.newBuilder(
                     URI.create("https://api.resend.com/emails"))
@@ -263,7 +268,7 @@ public class BusinessAuth {
 
             if (response.statusCode() >= 300) {
                 return "No se pudo enviar el correo. Resend respondió con código "
-                        + response.statusCode() + ".";
+                        + response.statusCode() + ": " + response.body();
             }
 
             return null;
@@ -274,7 +279,9 @@ public class BusinessAuth {
     }
 
     private static String esc(String value) {
-
+        if (value == null) {
+            return "";
+        }
         return value.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n")
