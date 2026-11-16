@@ -13,12 +13,16 @@ import com.minero.appirfyachaq.repository.RepositoryUser;
 import com.minero.appirfyachaq.security.TokenService;
 
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -27,27 +31,35 @@ public class BusinessAuth {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    private static final HttpClient HTTP = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
     private static final int CODE_MINUTES = 15;
     private static final int COOLDOWN_SECONDS = 60;
     private static final int MAX_ATTEMPTS = 5;
 
+    @Value("${resend.api-key:}")
+    private String resendApiKey;
+
+    @Value("${resend.from:onboarding@resend.dev}")
+    private String resendFrom;
+
     private final RepositoryUser userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final TokenService tokenService;
-    private final JavaMailSender mailSender;
 
     public BusinessAuth(
             RepositoryUser userRepository,
-            TokenService tokenService,
-            JavaMailSender mailSender
+            TokenService tokenService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.tokenService = tokenService;
-        this.mailSender = mailSender;
     }
 
     public ResponseLogin login(RequestLogin request) {
+
         ResponseLogin response = new ResponseLogin();
 
         EntityUser user = userRepository.findByEmail(request.getEmail()).orElse(null);
@@ -76,6 +88,7 @@ public class BusinessAuth {
     }
 
     public ResponseRegister register(RequestRegister request) {
+
         ResponseRegister response = new ResponseRegister();
 
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -109,6 +122,7 @@ public class BusinessAuth {
     }
 
     public ResponseForgotPassword forgotPassword(RequestForgotPassword request) {
+
         ResponseForgotPassword response = new ResponseForgotPassword();
 
         EntityUser user = userRepository.findByEmail(request.getEmail()).orElse(null);
@@ -130,6 +144,7 @@ public class BusinessAuth {
 
             response.error("Espera " + COOLDOWN_SECONDS
                     + " segundos antes de pedir otro código.");
+
             return response;
         }
 
@@ -141,7 +156,17 @@ public class BusinessAuth {
 
         userRepository.save(user);
 
-        String error = sendResetCode(user.getEmail(), code);
+        String error = sendEmail(
+                user.getEmail(),
+                "Código de recuperación - Minero Yachaq",
+                "Hola,\n\n"
+                        + "Has solicitado recuperar tu contraseña.\n\n"
+                        + "Tu código de verificación es: " + code + "\n\n"
+                        + "Este código vence en " + CODE_MINUTES + " minutos.\n\n"
+                        + "Si no solicitaste este cambio, ignora este mensaje.\n\n"
+                        + "Saludos,\n"
+                        + "Equipo Minero Yachaq"
+        );
 
         if (error != null) {
             user.setResetCodeHash(null);
@@ -155,11 +180,13 @@ public class BusinessAuth {
         }
 
         response.success("Código enviado a tu correo.");
+
         return response;
     }
 
     @Transactional
     public ResponseResetPassword resetPassword(RequestResetPassword request) {
+
         ResponseResetPassword response = new ResponseResetPassword();
 
         EntityUser user = userRepository.findByEmail(request.getEmail()).orElse(null);
@@ -197,7 +224,6 @@ public class BusinessAuth {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-
         user.setResetCodeHash(null);
         user.setResetCodeExpiresAt(null);
         user.setResetAttempts(0);
@@ -209,34 +235,50 @@ public class BusinessAuth {
         return response;
     }
 
-    /**
-     * Envía el código de recuperación mediante Gmail SMTP.
-     * Devuelve null si el envío fue exitoso.
-     */
-	private String sendResetCode(String email, String code) {
-	    try {
-	        SimpleMailMessage message = new SimpleMailMessage();
-	
-	        message.setTo(email);
-	        message.setSubject("Código de recuperación - Minero Yachaq");
-	
-	        message.setText(
-	                "Hola,\n\n"
-	                + "Has solicitado recuperar tu contraseña.\n\n"
-	                + "Tu código de verificación es: " + code + "\n\n"
-	                + "Este código vence en " + CODE_MINUTES + " minutos.\n\n"
-	                + "Si no solicitaste este cambio, ignora este mensaje.\n\n"
-	                + "Saludos,\n"
-	                + "Equipo Minero Yachaq"
-	        );
-	
-	        mailSender.send(message);
-	
-	        return null;
-	
-	    } catch (Exception e) {
-	        return "No se pudo enviar el correo. Verifica la configuración de Gmail SMTP.";
-	    }
-	}
+    private String sendEmail(String email, String subject, String messageText) {
 
+        if (resendApiKey == null || resendApiKey.isBlank()) {
+            return "El servicio de correo no está configurado.";
+        }
+
+        try {
+
+            String body = "{\"from\":\"" + esc(resendFrom) + "\","
+                    + "\"to\":[\"" + esc(email) + "\"],"
+                    + "\"subject\":\"" + esc(subject) + "\","
+                    + "\"text\":\"" + esc(messageText) + "\"}";
+
+            HttpRequest request = HttpRequest.newBuilder(
+                    URI.create("https://api.resend.com/emails"))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = HTTP.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() >= 300) {
+                return "No se pudo enviar el correo. Resend respondió con código "
+                        + response.statusCode() + ".";
+            }
+
+            return null;
+
+        } catch (Exception e) {
+            return "No se pudo enviar el correo mediante Resend.";
+        }
+    }
+
+    private static String esc(String value) {
+
+        return value.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
 }
