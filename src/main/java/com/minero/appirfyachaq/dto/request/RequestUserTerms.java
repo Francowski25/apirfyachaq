@@ -8,6 +8,7 @@ import lombok.Setter;
 public class RequestUserTerms {
     private String idUser;
     private String idPlant;
+    private String idUserPlant;
 
     private Double factorConcentrado;
     private Double humedad;

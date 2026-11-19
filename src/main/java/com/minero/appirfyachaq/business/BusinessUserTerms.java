@@ -5,11 +5,13 @@ import com.minero.appirfyachaq.dto.response.ResponseUserTerms;
 import com.minero.appirfyachaq.entity.EntityPlant;
 import com.minero.appirfyachaq.entity.EntityTerms;
 import com.minero.appirfyachaq.entity.EntityUserFavorite;
+import com.minero.appirfyachaq.entity.EntityUserPlant;
 import com.minero.appirfyachaq.entity.EntityUserTerms;
 import com.minero.appirfyachaq.generic.ResponseGeneric;
 import com.minero.appirfyachaq.repository.RepositoryPlant;
 import com.minero.appirfyachaq.repository.RepositoryUser;
 import com.minero.appirfyachaq.repository.RepositoryUserFavorite;
+import com.minero.appirfyachaq.repository.RepositoryUserPlant;
 import com.minero.appirfyachaq.repository.RepositoryUserTerms;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,15 +34,18 @@ public class BusinessUserTerms {
     private final RepositoryPlant plantRepository;
     private final RepositoryUser userRepository;
     private final RepositoryUserFavorite userFavoriteRepository;
+    private final RepositoryUserPlant userPlantRepository;
 
     public BusinessUserTerms(RepositoryUserTerms userTermsRepository,
                              RepositoryPlant plantRepository,
                              RepositoryUser userRepository,
-                             RepositoryUserFavorite userFavoriteRepository) {
+                             RepositoryUserFavorite userFavoriteRepository,
+                             RepositoryUserPlant userPlantRepository) {
         this.userTermsRepository = userTermsRepository;
         this.plantRepository = plantRepository;
         this.userRepository = userRepository;
         this.userFavoriteRepository = userFavoriteRepository;
+        this.userPlantRepository = userPlantRepository;
     }
 
     public List<ResponseUserTerms> listar(String idUser) {
@@ -54,10 +59,16 @@ public class BusinessUserTerms {
         }
 
         List<EntityPlant> plantas = plantRepository.findAll();
+        List<EntityUserPlant> plantasPersonales = userPlantRepository.findByUser_IdUser(idUser);
 
-        Map<String, EntityUserTerms> personalizados = new HashMap<>();
+        Map<String, EntityUserTerms> personalizadosOficiales = new HashMap<>();
+        Map<String, EntityUserTerms> personalizadosPersonales = new HashMap<>();
         for (EntityUserTerms ut : userTermsRepository.findByIdUser(idUser)) {
-            personalizados.put(ut.getIdPlant(), ut);
+            if (ut.getIdPlant() != null) {
+                personalizadosOficiales.put(ut.getIdPlant(), ut);
+            } else if (ut.getIdUserPlant() != null) {
+                personalizadosPersonales.put(ut.getIdUserPlant(), ut);
+            }
         }
 
         Set<String> favoritas = new HashSet<>();
@@ -66,7 +77,7 @@ public class BusinessUserTerms {
         }
 
         for (EntityPlant p : plantas) {
-            EntityUserTerms ut = personalizados.get(p.getIdPlant());
+            EntityUserTerms ut = personalizadosOficiales.get(p.getIdPlant());
             EntityTerms t = (ut != null) ? aTerms(ut) : p.getTerms();
 
             if (t == null) {
@@ -75,7 +86,22 @@ public class BusinessUserTerms {
 
             ResponseUserTerms res = new ResponseUserTerms();
             res.success("OK");
-            mapearRespuesta(p, t, ut, favoritas.contains(p.getIdPlant()), res);
+            mapearRespuesta(p.getIdPlant(), null, p.getName(), p.getLocation(),
+                    t, ut, favoritas.contains(p.getIdPlant()), res);
+            responses.add(res);
+        }
+
+        for (EntityUserPlant p : plantasPersonales) {
+            EntityUserTerms ut = personalizadosPersonales.get(p.getIdUserPlant());
+            EntityTerms t = (ut != null) ? aTerms(ut) : p.getTerms();
+            if (t == null) {
+                continue;
+            }
+
+            ResponseUserTerms res = new ResponseUserTerms();
+            res.success("OK");
+            mapearRespuesta(null, p.getIdUserPlant(), p.getName(), p.getLocation(),
+                    t, ut, false, res);
             responses.add(res);
         }
 
@@ -87,23 +113,50 @@ public class BusinessUserTerms {
         return responses;
     }
 
-    public ResponseGeneric guardar(RequestUserTerms request) {
+    public ResponseGeneric guardar(String authenticatedUserId, RequestUserTerms request) {
         ResponseGeneric response = new ResponseGeneric() {};
 
-        if (request == null || request.getIdUser() == null || !userRepository.existsById(request.getIdUser())) {
+        if (request == null || authenticatedUserId == null || !userRepository.existsById(authenticatedUserId)) {
             response.error("El usuario no existe.");
             return response;
         }
 
-        if (request.getIdPlant() == null || request.getIdPlant().isEmpty()) {
-            response.error("Debe seleccionar una planta.");
+        boolean officialPlant = request.getIdPlant() != null && !request.getIdPlant().isBlank();
+        boolean personalPlant = request.getIdUserPlant() != null && !request.getIdUserPlant().isBlank();
+        if (officialPlant == personalPlant) {
+            response.error("Debe seleccionar exactamente una planta.");
             return response;
         }
 
-        EntityPlant p = plantRepository.findById(request.getIdPlant()).orElse(null);
-        if (p == null) {
-            response.error("La planta seleccionada no existe.");
-            return response;
+        EntityTerms defaultTerms;
+        String plantId;
+        String userPlantId = null;
+        String plantName;
+        if (officialPlant) {
+            EntityPlant plant = plantRepository.findById(request.getIdPlant()).orElse(null);
+            if (plant == null) {
+                response.error("La planta seleccionada no existe.");
+                return response;
+            }
+            defaultTerms = plant.getTerms();
+            plantId = plant.getIdPlant();
+            plantName = plant.getName();
+        } else {
+            EntityUserPlant plant = userPlantRepository
+                    .findByIdUserPlantAndUser_IdUser(request.getIdUserPlant(), authenticatedUserId)
+                    .orElse(null);
+            if (plant == null) {
+                response.error("La planta personal no existe o no pertenece al usuario.");
+                return response;
+            }
+            if (request.getFavorita() != null) {
+                response.error("Las plantas personales no se pueden marcar como favoritas.");
+                return response;
+            }
+            defaultTerms = plant.getTerms();
+            plantId = null;
+            userPlantId = plant.getIdUserPlant();
+            plantName = plant.getName();
         }
 
         // Hay términos si viene al menos un valor; ninguno puede ser negativo
@@ -125,12 +178,13 @@ public class BusinessUserTerms {
 
         EntityUserTerms ut = null;
         if (hayTerminos) {
-            ut = userTermsRepository
-                    .findByIdUserAndIdPlant(request.getIdUser(), request.getIdPlant())
-                    .orElse(null);
+            ut = officialPlant
+                    ? userTermsRepository.findByIdUserAndIdPlant(authenticatedUserId, plantId).orElse(null)
+                    : userTermsRepository.findByIdUserAndIdUserPlant(authenticatedUserId, userPlantId)
+                            .orElse(null);
 
-            if (ut == null && p.getTerms() == null) {
-                response.error("La planta " + p.getName() + " no tiene términos por defecto.");
+            if (ut == null && defaultTerms == null) {
+                response.error("La planta " + plantName + " no tiene términos por defecto.");
                 return response;
             }
         }
@@ -139,10 +193,11 @@ public class BusinessUserTerms {
             if (hayTerminos) {
                 if (ut == null) {
                     // Primera vez: se parte de una copia de los términos de la planta
-                    ut = desdeTerms(p.getTerms());
+                    ut = desdeTerms(defaultTerms);
                     ut.setIdUserTerm(UUID.randomUUID().toString());
-                    ut.setIdUser(request.getIdUser());
-                    ut.setIdPlant(p.getIdPlant());
+                    ut.setIdUser(authenticatedUserId);
+                    ut.setIdPlant(plantId);
+                    ut.setIdUserPlant(userPlantId);
                 }
                 aplicar(request, ut);
                 ut.setUpdatedAt(LocalDateTime.now());
@@ -151,41 +206,58 @@ public class BusinessUserTerms {
 
             if (request.getFavorita() != null) {
                 if (request.getFavorita()) {
-                    if (!userFavoriteRepository.existsByIdUserAndIdPlant(request.getIdUser(), request.getIdPlant())) {
+                    if (!userFavoriteRepository.existsByIdUserAndIdPlant(
+                            authenticatedUserId, request.getIdPlant())) {
                         userFavoriteRepository.save(EntityUserFavorite.builder()
                                 .idUserFavorite(UUID.randomUUID().toString())
-                                .idUser(request.getIdUser())
+                                .idUser(authenticatedUserId)
                                 .idPlant(request.getIdPlant())
                                 .createdAt(LocalDateTime.now())
                                 .build());
                     }
                 } else {
-                    userFavoriteRepository.deleteByIdUserAndIdPlant(request.getIdUser(), request.getIdPlant());
+                    userFavoriteRepository.deleteByIdUserAndIdPlant(authenticatedUserId, request.getIdPlant());
                 }
             }
 
-            response.success("Cambios guardados correctamente para la planta " + p.getName());
+            response.success("Cambios guardados correctamente para la planta " + plantName);
         } catch (Exception e) {
             response.exception("Error al guardar los cambios: " + e.getMessage());
         }
         return response;
     }
 
-    public ResponseGeneric restablecer(RequestUserTerms request) {
+    public ResponseGeneric restablecer(String authenticatedUserId, RequestUserTerms request) {
         ResponseGeneric response = new ResponseGeneric() {};
 
-        if (request == null || request.getIdUser() == null || !userRepository.existsById(request.getIdUser())) {
+        if (request == null || authenticatedUserId == null || !userRepository.existsById(authenticatedUserId)) {
             response.error("El usuario no existe.");
             return response;
         }
 
-        if (request.getIdPlant() == null || request.getIdPlant().isEmpty()) {
-            response.error("Debe seleccionar una planta para restablecer.");
+        boolean officialPlant = request.getIdPlant() != null && !request.getIdPlant().isBlank();
+        boolean personalPlant = request.getIdUserPlant() != null && !request.getIdUserPlant().isBlank();
+        if (officialPlant == personalPlant) {
+            response.error("Debe seleccionar exactamente una planta para restablecer.");
             return response;
         }
 
         try {
-            userTermsRepository.deleteByIdUserAndIdPlant(request.getIdUser(), request.getIdPlant());
+            if (officialPlant) {
+                if (!plantRepository.existsById(request.getIdPlant())) {
+                    response.error("La planta seleccionada no existe.");
+                    return response;
+                }
+                userTermsRepository.deleteByIdUserAndIdPlant(authenticatedUserId, request.getIdPlant());
+            } else {
+                if (!userPlantRepository.existsByIdUserPlantAndUser_IdUser(
+                        request.getIdUserPlant(), authenticatedUserId)) {
+                    response.error("La planta personal no existe o no pertenece al usuario.");
+                    return response;
+                }
+                userTermsRepository.deleteByIdUserAndIdUserPlant(
+                        authenticatedUserId, request.getIdUserPlant());
+            }
             response.success("Términos restablecidos a los valores por defecto de la planta.");
         } catch (Exception e) {
             response.exception("Error al restablecer los términos: " + e.getMessage());
@@ -195,6 +267,12 @@ public class BusinessUserTerms {
 
     public EntityTerms obtenerTerminos(String idUser, EntityPlant plant) {
         return userTermsRepository.findByIdUserAndIdPlant(idUser, plant.getIdPlant())
+                .map(this::aTerms)
+                .orElse(plant.getTerms());
+    }
+
+    public EntityTerms obtenerTerminos(String idUser, EntityUserPlant plant) {
+        return userTermsRepository.findByIdUserAndIdUserPlant(idUser, plant.getIdUserPlant())
                 .map(this::aTerms)
                 .orElse(plant.getTerms());
     }
@@ -292,10 +370,13 @@ public class BusinessUserTerms {
                 .build();
     }
 
-    private void mapearRespuesta(EntityPlant p, EntityTerms t, EntityUserTerms ut, boolean favorita, ResponseUserTerms res) {
-        res.setIdPlant(p.getIdPlant());
-        res.setName(p.getName());
-        res.setLocation(p.getLocation());
+    private void mapearRespuesta(
+            String idPlant, String idUserPlant, String name, String location,
+            EntityTerms t, EntityUserTerms ut, boolean favorita, ResponseUserTerms res) {
+        res.setIdPlant(idPlant);
+        res.setIdUserPlant(idUserPlant);
+        res.setName(name);
+        res.setLocation(location);
         res.setPersonalizado(ut != null);
         res.setFavorita(favorita);
 

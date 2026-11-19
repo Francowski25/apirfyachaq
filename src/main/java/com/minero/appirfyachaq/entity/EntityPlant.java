@@ -2,9 +2,11 @@ package com.minero.appirfyachaq.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "tplant")
+@Table(name = "tplant", indexes = @Index(name = "idx_plant_term", columnList = "idTerm"))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,8 +17,10 @@ public class EntityPlant {
     @Column(name = "idPlant", length = 36)
     private String idPlant;
 
-    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "idTerm", referencedColumnName = "idTerm", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idTerm", referencedColumnName = "idTerm", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_plant_terms"))
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private EntityTerms terms;
 
     @Column(name = "name", length = 150, nullable = false)
@@ -31,6 +35,6 @@ public class EntityPlant {
     @Column(name = "rentalCostPerTM", nullable = false)
     private Double rentalCostPerTM;
 
-    @Column(name = "status")
+    @Column(name = "status", length = 15, nullable = false)
     private String status;
 }

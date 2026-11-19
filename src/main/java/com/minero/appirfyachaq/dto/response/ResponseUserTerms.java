@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @Setter
 public class ResponseUserTerms extends ResponseGeneric {
     private String idPlant;
+    private String idUserPlant;
     private String name;
     private String location;
     private Boolean personalizado;

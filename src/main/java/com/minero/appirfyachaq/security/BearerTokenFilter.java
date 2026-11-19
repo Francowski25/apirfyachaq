@@ -32,7 +32,8 @@ public class BearerTokenFilter extends OncePerRequestFilter {
             if (id != null) {
                 users.findById(id).filter(user -> Boolean.TRUE.equals(user.getStatus())).ifPresent(user -> {
                     boolean admin = "admin".equalsIgnoreCase(user.getRole());
-                    var authorities = List.of(new SimpleGrantedAuthority(admin ? "ROLE_ADMIN" : "ROLE_MINERO"));
+                    var authorities = List.of(new SimpleGrantedAuthority(
+                            admin ? "ROLE_ADMIN" : "ROLE_MINERO"));
                     var auth = new UsernamePasswordAuthenticationToken(user.getIdUser(), null, authorities);
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 });

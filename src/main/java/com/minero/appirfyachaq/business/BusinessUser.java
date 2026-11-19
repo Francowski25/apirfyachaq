@@ -5,11 +5,13 @@ import com.minero.appirfyachaq.dto.response.ResponseUser;
 import com.minero.appirfyachaq.entity.EntityUser;
 import com.minero.appirfyachaq.repository.RepositoryUser;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -65,8 +67,21 @@ public class BusinessUser {
         return responses;
     }
 
-    public ResponseUser editar(String idUser, RequestUserAdmin request) {
+    public ResponseUser editar(String idUser, RequestUserAdmin request, Authentication authentication) {
         ResponseUser response = new ResponseUser();
+
+        if (authentication == null) {
+            response.error("Autenticación requerida.");
+            return response;
+        }
+
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+        if (!admin && !Objects.equals(idUser, authentication.getName())) {
+            response.error("No tiene permiso para actualizar este usuario.");
+            return response;
+        }
+
         Optional<EntityUser> optional = userRepository.findById(idUser);
 
         if (optional.isEmpty()) {
@@ -78,8 +93,10 @@ public class BusinessUser {
             EntityUser user = optional.get();
             user.setName(request.getName());
             user.setEmail(request.getEmail());
-            user.setRole(request.getRole());
-            user.setStatus(request.getStatus());
+            if (admin) {
+                user.setRole(request.getRole());
+                user.setStatus(request.getStatus());
+            }
 
             if (request.getPassword() != null && !request.getPassword().isBlank()) {
                 user.setPassword(passwordEncoder.encode(request.getPassword()));

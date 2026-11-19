@@ -26,7 +26,7 @@ public class ControllerMarketPrice {
     }
 
     @PutMapping(path = "update")
-    @PreAuthorize("hasRole('admin')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<ResponseMarketPrice> actualizar(@Valid @RequestBody RequestMarketPrice request) {
         return ResponseEntity.ok(businessMarketPrice.actualizar(request));
     }

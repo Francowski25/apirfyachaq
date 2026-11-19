@@ -4,10 +4,13 @@ import com.minero.appirfyachaq.business.BusinessUser;
 import com.minero.appirfyachaq.dto.request.RequestUserAdmin;
 import com.minero.appirfyachaq.dto.response.ResponseUser;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @RequestMapping(path = "user")
@@ -30,8 +33,25 @@ public class ControllerUser {
     }
 
     @PutMapping(path = "update/{id}")
-    public ResponseEntity<ResponseUser> editar(@PathVariable String id, @Valid @RequestBody RequestUserAdmin request) {
-        return ResponseEntity.ok(businessUser.editar(id, request));
+    public ResponseEntity<ResponseUser> editar(
+            @PathVariable String id,
+            @Valid @RequestBody RequestUserAdmin request,
+            Authentication authentication) {
+        if (authentication == null) {
+            ResponseUser response = new ResponseUser();
+            response.error("Autenticación requerida.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+        if (!admin && !Objects.equals(id, authentication.getName())) {
+            ResponseUser response = new ResponseUser();
+            response.error("No tiene permiso para actualizar este usuario.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        return ResponseEntity.ok(businessUser.editar(id, request, authentication));
     }
 
     @DeleteMapping(path = "delete/{id}")

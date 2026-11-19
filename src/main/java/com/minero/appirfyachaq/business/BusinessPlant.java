@@ -63,7 +63,7 @@ public class BusinessPlant {
                     .location(request.getLocation())
                     .capacityTMAD(request.getCapacityTMAD())
                     .rentalCostPerTM(request.getRentalCostPerTM())
-                    .status(request.getStatus() != null ? request.getStatus() : "operativa")
+                    .status(request.getStatus() != null ? request.getStatus() : "Operativa")
                     .terms(nuevosTerminos)
                     .build();
             plantRepository.save(nuevaPlanta);

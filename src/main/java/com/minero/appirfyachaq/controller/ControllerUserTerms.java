@@ -7,6 +7,7 @@ import com.minero.appirfyachaq.generic.ResponseGeneric;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,17 +23,20 @@ public class ControllerUserTerms {
     }
 
     @GetMapping(path = "listar/{idUser}")
-    public ResponseEntity<List<ResponseUserTerms>> listar(@PathVariable String idUser) {
-        return ResponseEntity.ok(businessUserTerms.listar(idUser));
+    public ResponseEntity<List<ResponseUserTerms>> listar(
+            @PathVariable String idUser, Authentication authentication) {
+        return ResponseEntity.ok(businessUserTerms.listar(authentication.getName()));
     }
 
     @PutMapping(path = "guardar")
-    public ResponseEntity<ResponseGeneric> guardar(@Valid @RequestBody RequestUserTerms request) {
-        return ResponseEntity.ok(businessUserTerms.guardar(request));
+    public ResponseEntity<ResponseGeneric> guardar(
+            @Valid @RequestBody RequestUserTerms request, Authentication authentication) {
+        return ResponseEntity.ok(businessUserTerms.guardar(authentication.getName(), request));
     }
 
     @PostMapping(path = "restablecer")
-    public ResponseEntity<ResponseGeneric> restablecer(@Valid @RequestBody RequestUserTerms request) {
-        return ResponseEntity.ok(businessUserTerms.restablecer(request));
+    public ResponseEntity<ResponseGeneric> restablecer(
+            @Valid @RequestBody RequestUserTerms request, Authentication authentication) {
+        return ResponseEntity.ok(businessUserTerms.restablecer(authentication.getName(), request));
     }
 }

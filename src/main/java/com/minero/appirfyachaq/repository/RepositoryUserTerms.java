@@ -12,9 +12,13 @@ public interface RepositoryUserTerms extends JpaRepository<EntityUserTerms, Stri
 
     Optional<EntityUserTerms> findByIdUserAndIdPlant(String idUser, String idPlant);
 
+    Optional<EntityUserTerms> findByIdUserAndIdUserPlant(String idUser, String idUserPlant);
+
     List<EntityUserTerms> findByIdUser(String idUser);
 
     void deleteByIdUserAndIdPlant(String idUser, String idPlant);
+
+    void deleteByIdUserAndIdUserPlant(String idUser, String idUserPlant);
 
     void deleteByIdUser(String idUser);
 }

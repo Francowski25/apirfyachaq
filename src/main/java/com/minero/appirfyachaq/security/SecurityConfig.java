@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -13,6 +14,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, BearerTokenFilter tokenFilter) throws Exception {
@@ -27,6 +29,7 @@ public class SecurityConfig {
                         "/auth/forgot-password", "/auth/reset-password").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/user/update/**").authenticated()
                 .requestMatchers("/user/**").hasRole("ADMIN")
+                .requestMatchers("/user-plant/**").hasRole("MINERO")
                 .requestMatchers(HttpMethod.POST, "/plant/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/plant/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/plant/**").hasRole("ADMIN")
