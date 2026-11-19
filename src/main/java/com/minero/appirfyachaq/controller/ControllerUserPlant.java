@@ -1,7 +1,9 @@
 package com.minero.appirfyachaq.controller;
 
 import com.minero.appirfyachaq.business.BusinessUserPlant;
+import com.minero.appirfyachaq.dto.request.RequestTerms;
 import com.minero.appirfyachaq.dto.request.RequestUserPlant;
+import com.minero.appirfyachaq.dto.response.ResponseTerms;
 import com.minero.appirfyachaq.dto.response.ResponseUserPlant;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -51,5 +53,20 @@ public class ControllerUserPlant {
     public ResponseEntity<ResponseUserPlant> eliminar(
             @PathVariable String id, Authentication authentication) {
         return ResponseEntity.ok(businessUserPlant.eliminar(authentication.getName(), id));
+    }
+
+    @GetMapping(path = "terms/{id}")
+    public ResponseEntity<ResponseTerms> obtenerTerminos(
+            @PathVariable String id, Authentication authentication) {
+        return ResponseEntity.ok(businessUserPlant.obtenerTerminos(authentication.getName(), id));
+    }
+
+    @PutMapping(path = "terms/update/{id}")
+    public ResponseEntity<ResponseTerms> actualizarTerminos(
+            @PathVariable String id,
+            @Valid @RequestBody RequestTerms request,
+            Authentication authentication) {
+        return ResponseEntity.ok(
+                businessUserPlant.actualizarTerminos(authentication.getName(), id, request));
     }
 }

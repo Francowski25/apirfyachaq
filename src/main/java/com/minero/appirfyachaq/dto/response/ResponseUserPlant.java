@@ -17,6 +17,8 @@ public class ResponseUserPlant extends ResponseGeneric {
     private Double capacityTMAD;
     private Double rentalCostPerTM;
     private String status;
+    private Double maquila;
+    private Double analisis;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

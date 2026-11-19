@@ -6,10 +6,12 @@ import com.minero.appirfyachaq.dto.response.ResponseHistorial;
 import com.minero.appirfyachaq.entity.EntityCalculationHistory;
 import com.minero.appirfyachaq.entity.EntityPlant;
 import com.minero.appirfyachaq.entity.EntityTerms;
+import com.minero.appirfyachaq.entity.EntityUserPlant;
 import com.minero.appirfyachaq.generic.ResponseGeneric;
 import com.minero.appirfyachaq.repository.RepositoryCalculation;
 import com.minero.appirfyachaq.repository.RepositoryPlant;
 import com.minero.appirfyachaq.repository.RepositoryUser;
+import com.minero.appirfyachaq.repository.RepositoryUserPlant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class BusinessCalculation {
     private final RepositoryCalculation calculationRepository;
     private final RepositoryPlant plantRepository;
     private final RepositoryUser userRepository;
+    private final RepositoryUserPlant userPlantRepository;
     private final BusinessMarketPrice businessMarketPrice;
     private final BusinessUserTerms businessUserTerms;
 
@@ -35,11 +38,13 @@ public class BusinessCalculation {
     public BusinessCalculation(RepositoryCalculation calculationRepository,
                                RepositoryPlant plantRepository,
                                RepositoryUser userRepository,
+                               RepositoryUserPlant userPlantRepository,
                                BusinessMarketPrice businessMarketPrice,
                                BusinessUserTerms businessUserTerms) {
         this.calculationRepository = calculationRepository;
         this.plantRepository = plantRepository;
         this.userRepository = userRepository;
+        this.userPlantRepository = userPlantRepository;
         this.businessMarketPrice = businessMarketPrice;
         this.businessUserTerms = businessUserTerms;
     }
@@ -62,18 +67,41 @@ public class BusinessCalculation {
             return response;
         }
 
-        Optional<EntityPlant> optPlant = plantRepository.findById(request.getIdPlant());
-        if (optPlant.isEmpty()) {
-            response.error("Planta no encontrada.");
+        boolean esSistema = request.getIdPlant() != null && !request.getIdPlant().isBlank();
+        boolean esPersonal = request.getIdUserPlant() != null && !request.getIdUserPlant().isBlank();
+
+        // Debe venir exactamente uno de los dos
+        if (esSistema == esPersonal) {
+            response.error("Seleccione una planta válida.");
             return response;
         }
 
-        EntityTerms t = businessUserTerms.obtenerTerminos(request.getIdUser(), optPlant.get());
-        if (t == null) {
-            response.error("La planta no tiene términos configurados.");
-            return response;
+        EntityTerms t;
+        double alquilerPlanta;
+
+        if (esPersonal) {
+            // Solo encuentra la planta si pertenece a este usuario
+            Optional<EntityUserPlant> optUserPlant = userPlantRepository
+                    .findByIdUserPlantAndUser_IdUser(request.getIdUserPlant(), request.getIdUser());
+            if (optUserPlant.isEmpty()) {
+                response.error("Planta personal no encontrada.");
+                return response;
+            }
+            t = optUserPlant.get().getTerms();
+            alquilerPlanta = optUserPlant.get().getRentalCostPerTM();
+        } else {
+            Optional<EntityPlant> optPlant = plantRepository.findById(request.getIdPlant());
+            if (optPlant.isEmpty()) {
+                response.error("Planta no encontrada.");
+                return response;
+            }
+            t = businessUserTerms.obtenerTerminos(request.getIdUser(), optPlant.get());
+            if (t == null) {
+                response.error("La planta no tiene términos configurados.");
+                return response;
+            }
+            alquilerPlanta = optPlant.get().getRentalCostPerTM();
         }
-        double alquilerPlanta = optPlant.get().getRentalCostPerTM();
 
         try {
             double tonelaje = valor(request.getTonelaje());

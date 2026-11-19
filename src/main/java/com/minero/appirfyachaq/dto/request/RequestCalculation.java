@@ -14,4 +14,6 @@ public class RequestCalculation {
     private Double leyAg;
     private Double leyAu;
     private Double adelanto;
+    
+   private String idUserPlant;
 }

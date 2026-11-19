@@ -1,7 +1,8 @@
-
 package com.minero.appirfyachaq.business;
 
+import com.minero.appirfyachaq.dto.request.RequestTerms;
 import com.minero.appirfyachaq.dto.request.RequestUserPlant;
+import com.minero.appirfyachaq.dto.response.ResponseTerms;
 import com.minero.appirfyachaq.dto.response.ResponseUserPlant;
 import com.minero.appirfyachaq.entity.EntityTerms;
 import com.minero.appirfyachaq.entity.EntityUser;
@@ -54,7 +55,6 @@ public class BusinessUserPlant {
 
             LocalDateTime now = LocalDateTime.now();
 
-            // Crear términos predeterminados automáticamente
             EntityTerms nuevosTerminos = EntityTerms.builder()
                     .idTerm(UUID.randomUUID().toString())
                     .factorConcentrado(3.3)
@@ -83,7 +83,6 @@ public class BusinessUserPlant {
 
             termsRepository.save(nuevosTerminos);
 
-            // Crear planta personal asociada a sus propios términos
             EntityUserPlant plant = EntityUserPlant.builder()
                     .idUserPlant(UUID.randomUUID().toString())
                     .user(user.get())
@@ -188,7 +187,6 @@ public class BusinessUserPlant {
 
             EntityUserPlant plant = existing.get();
 
-            // Se mantienen los términos que ya pertenecen a esta planta
             plant.setName(request.getName());
             plant.setLocation(request.getLocation());
             plant.setCapacityTMAD(request.getCapacityTMAD());
@@ -229,7 +227,13 @@ public class BusinessUserPlant {
                 return response;
             }
 
-            userPlantRepository.delete(plant.get());
+            EntityUserPlant entity = plant.get();
+            EntityTerms terms = entity.getTerms();
+
+            userPlantRepository.delete(entity);
+            userPlantRepository.flush();
+            termsRepository.delete(terms);
+
             response.success("Planta personal eliminada correctamente.");
 
         } catch (Exception e) {
@@ -238,6 +242,93 @@ public class BusinessUserPlant {
 
         return response;
     }
+
+    public ResponseTerms obtenerTerminos(String idUser, String idUserPlant) {
+        ResponseTerms response = new ResponseTerms();
+
+        try {
+            if (usuarioMineroActivo(idUser).isEmpty()) {
+                response.error("El usuario no puede administrar plantas personales.");
+                return response;
+            }
+
+            Optional<EntityUserPlant> plant =
+                    userPlantRepository.findByIdUserPlantAndUser_IdUser(idUserPlant, idUser);
+
+            if (plant.isEmpty()) {
+                response.error("Planta personal no encontrada.");
+                return response;
+            }
+
+            response.success("OK");
+            mapearTerminos(plant.get().getTerms(), response);
+
+        } catch (Exception e) {
+            response.exception("Error al consultar términos: " + e.getMessage());
+        }
+
+        return response;
+    }
+
+    public ResponseTerms actualizarTerminos(String idUser, String idUserPlant, RequestTerms request) {
+        ResponseTerms response = new ResponseTerms();
+
+        try {
+            if (!terminosValidos(request)) {
+                response.error("Los datos de los términos no son válidos.");
+                return response;
+            }
+
+            if (usuarioMineroActivo(idUser).isEmpty()) {
+                response.error("El usuario no puede administrar plantas personales.");
+                return response;
+            }
+
+            Optional<EntityUserPlant> plant =
+                    userPlantRepository.findByIdUserPlantAndUser_IdUser(idUserPlant, idUser);
+
+            if (plant.isEmpty()) {
+                response.error("Planta personal no encontrada.");
+                return response;
+            }
+
+            EntityTerms t = plant.get().getTerms();
+
+            t.setFactorConcentrado(request.getFactorConcentrado());
+            t.setHumedad(request.getHumedad());
+            t.setMerma(request.getMerma());
+            t.setLeyConcentradoCu(request.getLeyConcentradoCu());
+            t.setLeyConcentradoAg(request.getLeyConcentradoAg());
+            t.setLeyConcentradoAu(request.getLeyConcentradoAu());
+            t.setPagableCu(request.getPagableCu());
+            t.setDeduccionCu(request.getDeduccionCu());
+            t.setGastosRefCu(request.getGastosRefCu());
+            t.setProteccionCu(request.getProteccionCu());
+            t.setPagableAg(request.getPagableAg());
+            t.setDeduccionAg(request.getDeduccionAg());
+            t.setGastosRefAg(request.getGastosRefAg());
+            t.setPagableAu(request.getPagableAu());
+            t.setDeduccionAu(request.getDeduccionAu());
+            t.setGastosRefAu(request.getGastosRefAu());
+            t.setMaquila(request.getMaquila());
+            t.setAnalisis(request.getAnalisis());
+            t.setTrasladoInterno(request.getTrasladoInterno());
+            t.setIgvPorcentaje(request.getIgvPorcentaje());
+            t.setDetraccionPorcentaje(request.getDetraccionPorcentaje());
+            t.setUpdatedAt(LocalDateTime.now());
+
+            termsRepository.save(t);
+
+            response.success("Términos actualizados correctamente.");
+            mapearTerminos(t, response);
+
+        } catch (Exception e) {
+            response.exception("Error al actualizar términos: " + e.getMessage());
+        }
+
+        return response;
+    }
+
 
     private Optional<EntityUser> usuarioMineroActivo(String idUser) {
         if (idUser == null || idUser.isBlank()) {
@@ -268,6 +359,31 @@ public class BusinessUserPlant {
         return true;
     }
 
+    private boolean terminosValidos(RequestTerms r) {
+        return r != null
+                && r.getFactorConcentrado() != null
+                && r.getHumedad() != null
+                && r.getMerma() != null
+                && r.getLeyConcentradoCu() != null
+                && r.getLeyConcentradoAg() != null
+                && r.getLeyConcentradoAu() != null
+                && r.getPagableCu() != null
+                && r.getDeduccionCu() != null
+                && r.getGastosRefCu() != null
+                && r.getProteccionCu() != null
+                && r.getPagableAg() != null
+                && r.getDeduccionAg() != null
+                && r.getGastosRefAg() != null
+                && r.getPagableAu() != null
+                && r.getDeduccionAu() != null
+                && r.getGastosRefAu() != null
+                && r.getMaquila() != null
+                && r.getAnalisis() != null
+                && r.getTrasladoInterno() != null
+                && r.getIgvPorcentaje() != null
+                && r.getDetraccionPorcentaje() != null;
+    }
+
     private void mapearRespuesta(EntityUserPlant plant, ResponseUserPlant response) {
         response.setIdUserPlant(plant.getIdUserPlant());
         response.setIdTerm(plant.getTerms().getIdTerm());
@@ -278,5 +394,32 @@ public class BusinessUserPlant {
         response.setStatus(plant.getStatus());
         response.setCreatedAt(plant.getCreatedAt());
         response.setUpdatedAt(plant.getUpdatedAt());
+        response.setMaquila(plant.getTerms().getMaquila());
+        response.setAnalisis(plant.getTerms().getAnalisis());
+    }
+
+    private void mapearTerminos(EntityTerms t, ResponseTerms response) {
+        response.setIdTerm(t.getIdTerm());
+        response.setFactorConcentrado(t.getFactorConcentrado());
+        response.setHumedad(t.getHumedad());
+        response.setMerma(t.getMerma());
+        response.setLeyConcentradoCu(t.getLeyConcentradoCu());
+        response.setLeyConcentradoAg(t.getLeyConcentradoAg());
+        response.setLeyConcentradoAu(t.getLeyConcentradoAu());
+        response.setPagableCu(t.getPagableCu());
+        response.setDeduccionCu(t.getDeduccionCu());
+        response.setGastosRefCu(t.getGastosRefCu());
+        response.setProteccionCu(t.getProteccionCu());
+        response.setPagableAg(t.getPagableAg());
+        response.setDeduccionAg(t.getDeduccionAg());
+        response.setGastosRefAg(t.getGastosRefAg());
+        response.setPagableAu(t.getPagableAu());
+        response.setDeduccionAu(t.getDeduccionAu());
+        response.setGastosRefAu(t.getGastosRefAu());
+        response.setMaquila(t.getMaquila());
+        response.setAnalisis(t.getAnalisis());
+        response.setTrasladoInterno(t.getTrasladoInterno());
+        response.setIgvPorcentaje(t.getIgvPorcentaje());
+        response.setDetraccionPorcentaje(t.getDetraccionPorcentaje());
     }
 }
