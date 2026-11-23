@@ -410,4 +410,12 @@ public class BusinessUserTerms {
 
         res.setUpdatedAt(ut != null ? ut.getUpdatedAt() : null);
     }
+    
+    public boolean tienePersonalizados(String idUser, EntityPlant plant) {
+        return userTermsRepository.findByIdUserAndIdPlant(idUser, plant.getIdPlant()).isPresent();
+    }
+
+    public boolean tienePersonalizados(String idUser, EntityUserPlant plant) {
+        return userTermsRepository.findByIdUserAndIdUserPlant(idUser, plant.getIdUserPlant()).isPresent();
+    }
 }

@@ -106,4 +106,9 @@ public class BusinessMarketPrice {
         return marketPriceRepository.findByMetal(normalizar(metal))
                 .map(EntityMarketPrice::getPrice);
     }
+    
+    public Optional<LocalDateTime> obtenerActualizacion(String metal) {
+        return marketPriceRepository.findByMetal(normalizar(metal))
+                .map(EntityMarketPrice::getUpdatedAt);
+    }
 }

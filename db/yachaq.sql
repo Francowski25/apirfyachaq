@@ -1,3 +1,4 @@
+
 -- APPIRFYACHAQ - Base de datos PostgreSQL
 
 -- 1. Eliminar tablas anteriores
@@ -168,25 +169,93 @@ CREATE UNIQUE INDEX uq_userterms_personal_plant
 CREATE TABLE tcalculationHistory (
     idCalculation VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     idUser VARCHAR(36) NOT NULL,
+
+    idPlant VARCHAR(36) NULL,
+    idUserPlant VARCHAR(36) NULL,
+    plantType VARCHAR(10) NOT NULL CHECK (plantType IN ('OFICIAL', 'PERSONAL')),
+    plantName VARCHAR(150) NOT NULL,
+    plantLocation VARCHAR(200) NOT NULL,
+    plantRentalCostPerTM DOUBLE PRECISION NOT NULL,
+    termsSource VARCHAR(15) NOT NULL CHECK (termsSource IN ('GENERAL', 'PERSONALIZADO')),
+
+    factorConcentrado DOUBLE PRECISION NOT NULL,
+    humedad DOUBLE PRECISION NOT NULL,
+    merma DOUBLE PRECISION NOT NULL,
+    leyConcentradoCu DOUBLE PRECISION NOT NULL,
+    leyConcentradoAg DOUBLE PRECISION NOT NULL,
+    leyConcentradoAu DOUBLE PRECISION NOT NULL,
+    pagableCu DOUBLE PRECISION NOT NULL,
+    deduccionCu DOUBLE PRECISION NOT NULL,
+    gastosRefCu DOUBLE PRECISION NOT NULL,
+    proteccionCu DOUBLE PRECISION NOT NULL,
+    pagableAg DOUBLE PRECISION NOT NULL,
+    deduccionAg DOUBLE PRECISION NOT NULL,
+    gastosRefAg DOUBLE PRECISION NOT NULL,
+    pagableAu DOUBLE PRECISION NOT NULL,
+    deduccionAu DOUBLE PRECISION NOT NULL,
+    gastosRefAu DOUBLE PRECISION NOT NULL,
+    maquila DOUBLE PRECISION NOT NULL,
+    analisis DOUBLE PRECISION NOT NULL,
+    trasladoInterno DOUBLE PRECISION NOT NULL,
+    igvPorcentaje DOUBLE PRECISION NOT NULL,
+    detraccionPorcentaje DOUBLE PRECISION NOT NULL,
+
     material VARCHAR(50) NOT NULL,
     tonelaje DOUBLE PRECISION NOT NULL,
     leyCu DOUBLE PRECISION NOT NULL,
     leyAg DOUBLE PRECISION NOT NULL,
     leyAu DOUBLE PRECISION NOT NULL,
+    adelanto DOUBLE PRECISION NOT NULL DEFAULT 0,
+
+    precioCu DOUBLE PRECISION NOT NULL,
     precioAg DOUBLE PRECISION NOT NULL,
     precioAu DOUBLE PRECISION NOT NULL,
-    adelanto DOUBLE PRECISION NOT NULL,
-    precioCu DOUBLE PRECISION NOT NULL,
-    alquilerPlanta DOUBLE PRECISION NOT NULL,
+    preciosUpdatedAt TIMESTAMP NULL,
+
     tmHumedas DOUBLE PRECISION NOT NULL,
     tmns DOUBLE PRECISION NOT NULL,
+
+    contenidoPagableCu DOUBLE PRECISION NOT NULL DEFAULT 0,
+    precioAjustadoCu DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pagoCu DOUBLE PRECISION NOT NULL DEFAULT 0,
+    contenidoPagableAg DOUBLE PRECISION NOT NULL DEFAULT 0,
+    precioAjustadoAg DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pagoAg DOUBLE PRECISION NOT NULL DEFAULT 0,
+    contenidoPagableAu DOUBLE PRECISION NOT NULL DEFAULT 0,
+    precioAjustadoAu DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pagoAu DOUBLE PRECISION NOT NULL DEFAULT 0,
+
     pagoTotal DOUBLE PRECISION NOT NULL,
+    reduccionRefinacion DOUBLE PRECISION NOT NULL DEFAULT 0,
+    analisisPorTmns DOUBLE PRECISION NOT NULL DEFAULT 0,
+    trasladoPorTmns DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pagoPorTm DOUBLE PRECISION NOT NULL DEFAULT 0,
+    valorNeto DOUBLE PRECISION NOT NULL DEFAULT 0,
+    igv DOUBLE PRECISION NOT NULL DEFAULT 0,
+    valorTotal DOUBLE PRECISION NOT NULL DEFAULT 0,
+    detraccion DOUBLE PRECISION NOT NULL DEFAULT 0,
+    alquilerPlanta DOUBLE PRECISION NOT NULL,
+    alquilerTotal DOUBLE PRECISION NOT NULL DEFAULT 0,
     totalAPagar DOUBLE PRECISION NOT NULL,
-    calculatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    isSynced BOOLEAN DEFAULT TRUE,
+
+    calculatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    isSynced BOOLEAN NOT NULL DEFAULT TRUE,
+
     CONSTRAINT fk_calculation_user
-        FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE
+        FOREIGN KEY (idUser) REFERENCES tuser(idUser) ON DELETE CASCADE,
+    CONSTRAINT fk_calculation_plant
+        FOREIGN KEY (idPlant) REFERENCES tplant(idPlant) ON DELETE SET NULL,
+    CONSTRAINT fk_calculation_userplant
+        FOREIGN KEY (idUserPlant) REFERENCES tuserPlant(idUserPlant) ON DELETE SET NULL,
+    CONSTRAINT ck_calculation_plant_ref CHECK (
+        (plantType = 'OFICIAL' AND idUserPlant IS NULL)
+        OR (plantType = 'PERSONAL' AND idPlant IS NULL)
+    )
 );
+
+CREATE INDEX idx_calculation_user_date ON tcalculationHistory(idUser, calculatedAt DESC);
+CREATE INDEX idx_calculation_plant ON tcalculationHistory(idPlant);
+CREATE INDEX idx_calculation_userplant ON tcalculationHistory(idUserPlant);
 
 -- 10. Favoritos (plantas oficiales)
 CREATE TABLE tuserFavorite (
@@ -220,13 +289,12 @@ CREATE INDEX idx_userplant_term ON tuserPlant(idTerm);
 CREATE INDEX idx_userterms_user ON tuserTerms(idUser);
 CREATE INDEX idx_userterms_plant ON tuserTerms(idPlant);
 CREATE INDEX idx_userterms_userplant ON tuserTerms(idUserPlant);
-CREATE INDEX idx_calculation_user ON tcalculationHistory(idUser);
 CREATE INDEX idx_userfavorite_user ON tuserFavorite(idUser);
 
 -- 13. Usuarios de prueba
 INSERT INTO tuser (name, email, password, role, createdAt, status)
 VALUES
-('Carlos Admin', '', '$2a$12$v0YFGBhHaduV1f4xuuthy.rsDcdr5RmdS8fyt.0/5y4MAeiwe7sjy', 'admin', CURRENT_TIMESTAMP, TRUE),
+('Carlos Admin', 'admin@yachaq.com', '$2a$12$ESpe3J8spdwd8cvbAWO.qOy3TS4xX/.Mfg/PXrUNgi74/f4ynO0ha', 'admin', CURRENT_TIMESTAMP, TRUE),
 ('Juan Minero', 'minero@yachaq.com', '$2a$12$KYSLKVbAF3oNLbSRvM.JrO3gnpsDq/PDzCUzyD23OZlO2liInylIi', 'minero', CURRENT_TIMESTAMP, TRUE),
 ('Pedro Quispe', 'pedro@gmail.com', '$2a$12$jUNrAOlOkXJv./lsQgqOReI7GSYQlM8fJPNF1uKqzgpTsaTOk1QTW', 'minero', CURRENT_TIMESTAMP, TRUE),
 ('Maria Condori', 'maria@gmail.com', '$2a$12$DOgLk2180jYcBqy6uuXQ4eMwOXIk21IQ3e.U4DpC6oiP/x9laB1me', 'minero', CURRENT_TIMESTAMP, TRUE),

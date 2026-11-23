@@ -59,6 +59,16 @@ public class BusinessCalculation {
                 .orElse(0.0);
     }
 
+    private LocalDateTime fechaPrecio(String metal) {
+        return businessMarketPrice.obtenerActualizacion(metal).orElse(null);
+    }
+
+    private LocalDateTime masAntigua(LocalDateTime a, LocalDateTime b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.isBefore(b) ? a : b;
+    }
+
     public ResponseCalculation calcular(RequestCalculation request) {
         ResponseCalculation response = new ResponseCalculation();
 
@@ -70,7 +80,6 @@ public class BusinessCalculation {
         boolean esSistema = request.getIdPlant() != null && !request.getIdPlant().isBlank();
         boolean esPersonal = request.getIdUserPlant() != null && !request.getIdUserPlant().isBlank();
 
-        // Debe venir exactamente uno de los dos
         if (esSistema == esPersonal) {
             response.error("Seleccione una planta válida.");
             return response;
@@ -79,28 +88,48 @@ public class BusinessCalculation {
         EntityTerms t;
         double alquilerPlanta;
 
+        String plantType;
+        String plantName;
+        String plantLocation;
+        String termsSource;
+
         if (esPersonal) {
-            // Solo encuentra la planta si pertenece a este usuario
             Optional<EntityUserPlant> optUserPlant = userPlantRepository
                     .findByIdUserPlantAndUser_IdUser(request.getIdUserPlant(), request.getIdUser());
             if (optUserPlant.isEmpty()) {
                 response.error("Planta personal no encontrada.");
                 return response;
             }
-            t = optUserPlant.get().getTerms();
-            alquilerPlanta = optUserPlant.get().getRentalCostPerTM();
+            EntityUserPlant userPlant = optUserPlant.get();
+            t = businessUserTerms.obtenerTerminos(request.getIdUser(), userPlant);
+            if (t == null) {
+                response.error("La planta no tiene términos configurados.");
+                return response;
+            }
+            alquilerPlanta = userPlant.getRentalCostPerTM();
+            plantType = "PERSONAL";
+            plantName = userPlant.getName();
+            plantLocation = userPlant.getLocation();
+            termsSource = businessUserTerms.tienePersonalizados(request.getIdUser(), userPlant)
+                    ? "PERSONALIZADO" : "GENERAL";
         } else {
             Optional<EntityPlant> optPlant = plantRepository.findById(request.getIdPlant());
             if (optPlant.isEmpty()) {
                 response.error("Planta no encontrada.");
                 return response;
             }
-            t = businessUserTerms.obtenerTerminos(request.getIdUser(), optPlant.get());
+            EntityPlant plant = optPlant.get();
+            t = businessUserTerms.obtenerTerminos(request.getIdUser(), plant);
             if (t == null) {
                 response.error("La planta no tiene términos configurados.");
                 return response;
             }
-            alquilerPlanta = optPlant.get().getRentalCostPerTM();
+            alquilerPlanta = plant.getRentalCostPerTM();
+            plantType = "OFICIAL";
+            plantName = plant.getName();
+            plantLocation = plant.getLocation();
+            termsSource = businessUserTerms.tienePersonalizados(request.getIdUser(), plant)
+                    ? "PERSONALIZADO" : "GENERAL";
         }
 
         try {
@@ -124,6 +153,8 @@ public class BusinessCalculation {
             boolean hayAg = leyAg > 0;
             boolean hayAu = leyAu > 0;
 
+            LocalDateTime preciosUpdatedAt = null;
+
             double precioCu = 0.0;
             if (hayCu) {
                 precioCu = precio("CU");
@@ -131,6 +162,7 @@ public class BusinessCalculation {
                     response.error("No hay precio configurado para el cobre (CU).");
                     return response;
                 }
+                preciosUpdatedAt = masAntigua(preciosUpdatedAt, fechaPrecio("CU"));
             }
 
             double precioAg = 0.0;
@@ -140,6 +172,7 @@ public class BusinessCalculation {
                     response.error("No hay precio configurado para la plata (AG).");
                     return response;
                 }
+                preciosUpdatedAt = masAntigua(preciosUpdatedAt, fechaPrecio("AG"));
             }
 
             double precioAu = 0.0;
@@ -149,6 +182,7 @@ public class BusinessCalculation {
                     response.error("No hay precio configurado para el oro (AU).");
                     return response;
                 }
+                preciosUpdatedAt = masAntigua(preciosUpdatedAt, fechaPrecio("AU"));
             }
 
             double tmHumedas = tonelaje * leyCu * t.getFactorConcentrado() / 100;
@@ -211,25 +245,78 @@ public class BusinessCalculation {
             EntityCalculationHistory historial = EntityCalculationHistory.builder()
                     .idCalculation(UUID.randomUUID().toString())
                     .idUser(request.getIdUser())
+
+                    .idPlant(esSistema ? request.getIdPlant() : null)
+                    .idUserPlant(esPersonal ? request.getIdUserPlant() : null)
+                    .plantType(plantType)
+                    .plantName(plantName)
+                    .plantLocation(plantLocation)
+                    .plantRentalCostPerTM(alquilerPlanta)
+                    .termsSource(termsSource)
+
+                    .factorConcentrado(t.getFactorConcentrado())
+                    .humedad(t.getHumedad())
+                    .merma(t.getMerma())
+                    .leyConcentradoCu(t.getLeyConcentradoCu())
+                    .leyConcentradoAg(t.getLeyConcentradoAg())
+                    .leyConcentradoAu(t.getLeyConcentradoAu())
+                    .pagableCu(t.getPagableCu())
+                    .deduccionCu(t.getDeduccionCu())
+                    .gastosRefCu(t.getGastosRefCu())
+                    .proteccionCu(t.getProteccionCu())
+                    .pagableAg(t.getPagableAg())
+                    .deduccionAg(t.getDeduccionAg())
+                    .gastosRefAg(t.getGastosRefAg())
+                    .pagableAu(t.getPagableAu())
+                    .deduccionAu(t.getDeduccionAu())
+                    .gastosRefAu(t.getGastosRefAu())
+                    .maquila(t.getMaquila())
+                    .analisis(t.getAnalisis())
+                    .trasladoInterno(t.getTrasladoInterno())
+                    .igvPorcentaje(t.getIgvPorcentaje())
+                    .detraccionPorcentaje(t.getDetraccionPorcentaje())
+
                     .material(request.getMaterial())
                     .tonelaje(tonelaje)
                     .leyCu(leyCu)
                     .leyAg(leyAg)
                     .leyAu(leyAu)
+                    .adelanto(adelanto)
+
                     .precioCu(precioCu)
                     .precioAg(precioAg)
                     .precioAu(precioAu)
-                    .adelanto(adelanto)
-                    .alquilerPlanta(alquilerPlanta)
+                    .preciosUpdatedAt(preciosUpdatedAt)
+
                     .tmHumedas(tmHumedas)
                     .tmns(tmns)
-                    .pagoTotal(valorNeto)
+                    .contenidoPagableCu(contenidoPagableCu)
+                    .precioAjustadoCu(precioAjustadoCu)
+                    .pagoCu(pagoCu)
+                    .contenidoPagableAg(contenidoPagableAg)
+                    .precioAjustadoAg(precioAjustadoAg)
+                    .pagoAg(pagoAg)
+                    .contenidoPagableAu(contenidoPagableAu)
+                    .precioAjustadoAu(precioAjustadoAu)
+                    .pagoAu(pagoAu)
+                    .pagoTotal(pagoTotal)
+                    .reduccionRefinacion(reduccionRefinacion)
+                    .analisisPorTmns(analisisPorTmns)
+                    .trasladoPorTmns(trasladoPorTmns)
+                    .pagoPorTm(pagoPorTm)
+                    .valorNeto(valorNeto)
+                    .igv(igv)
+                    .valorTotal(valorTotal)
+                    .detraccion(detraccion)
+                    .alquilerPlanta(alquilerPlanta)
+                    .alquilerTotal(alquilerTotal)
                     .totalAPagar(totalAPagar)
+
                     .calculatedAt(LocalDateTime.now())
                     .isSynced(true)
                     .build();
 
-            calculationRepository.save(historial);
+            calculationRepository.saveAndFlush(historial);
 
             response.success("Cálculo realizado correctamente.");
             response.setIdCalculation(historial.getIdCalculation());
@@ -279,17 +366,85 @@ public class BusinessCalculation {
         for (EntityCalculationHistory h : historial) {
             ResponseHistorial res = new ResponseHistorial();
             res.success("OK");
-            res.setIdCalculation(h.getIdCalculation());
-            res.setMaterial(h.getMaterial());
-            res.setTonelaje(h.getTonelaje());
-            res.setLey(h.getLeyCu());
-            res.setPrecio(h.getPrecioCu());
-            res.setTmns(h.getTmns());
-            res.setTotalAPagar(h.getTotalAPagar());
-            res.setCalculatedAt(h.getCalculatedAt());
+            mapearHistorial(h, res);
             responses.add(res);
         }
         return responses;
+    }
+
+    private void mapearHistorial(EntityCalculationHistory h, ResponseHistorial res) {
+        res.setIdCalculation(h.getIdCalculation());
+
+        res.setMaterial(h.getMaterial());
+        res.setTonelaje(h.getTonelaje());
+        res.setLey(h.getLeyCu());
+        res.setPrecio(h.getPrecioCu());
+        res.setTmns(h.getTmns());
+        res.setTotalAPagar(h.getTotalAPagar());
+        res.setCalculatedAt(h.getCalculatedAt());
+
+        res.setIdPlant(h.getIdPlant());
+        res.setIdUserPlant(h.getIdUserPlant());
+        res.setPlantType(h.getPlantType());
+        res.setPlantName(h.getPlantName());
+        res.setPlantLocation(h.getPlantLocation());
+        res.setPlantRentalCostPerTM(h.getPlantRentalCostPerTM());
+        res.setTermsSource(h.getTermsSource());
+
+        res.setFactorConcentrado(h.getFactorConcentrado());
+        res.setHumedad(h.getHumedad());
+        res.setMerma(h.getMerma());
+        res.setLeyConcentradoCu(h.getLeyConcentradoCu());
+        res.setLeyConcentradoAg(h.getLeyConcentradoAg());
+        res.setLeyConcentradoAu(h.getLeyConcentradoAu());
+        res.setPagableCu(h.getPagableCu());
+        res.setDeduccionCu(h.getDeduccionCu());
+        res.setGastosRefCu(h.getGastosRefCu());
+        res.setProteccionCu(h.getProteccionCu());
+        res.setPagableAg(h.getPagableAg());
+        res.setDeduccionAg(h.getDeduccionAg());
+        res.setGastosRefAg(h.getGastosRefAg());
+        res.setPagableAu(h.getPagableAu());
+        res.setDeduccionAu(h.getDeduccionAu());
+        res.setGastosRefAu(h.getGastosRefAu());
+        res.setMaquila(h.getMaquila());
+        res.setAnalisis(h.getAnalisis());
+        res.setTrasladoInterno(h.getTrasladoInterno());
+        res.setIgvPorcentaje(h.getIgvPorcentaje());
+        res.setDetraccionPorcentaje(h.getDetraccionPorcentaje());
+
+        res.setLeyCu(h.getLeyCu());
+        res.setLeyAg(h.getLeyAg());
+        res.setLeyAu(h.getLeyAu());
+        res.setAdelanto(h.getAdelanto());
+
+        res.setPrecioCu(h.getPrecioCu());
+        res.setPrecioAg(h.getPrecioAg());
+        res.setPrecioAu(h.getPrecioAu());
+        res.setPreciosUpdatedAt(h.getPreciosUpdatedAt());
+
+        res.setTmHumedas(h.getTmHumedas());
+        res.setContenidoPagableCu(h.getContenidoPagableCu());
+        res.setPrecioAjustadoCu(h.getPrecioAjustadoCu());
+        res.setPagoCu(h.getPagoCu());
+        res.setContenidoPagableAg(h.getContenidoPagableAg());
+        res.setPrecioAjustadoAg(h.getPrecioAjustadoAg());
+        res.setPagoAg(h.getPagoAg());
+        res.setContenidoPagableAu(h.getContenidoPagableAu());
+        res.setPrecioAjustadoAu(h.getPrecioAjustadoAu());
+        res.setPagoAu(h.getPagoAu());
+        res.setPagoTotal(h.getPagoTotal());
+        res.setReduccionRefinacion(h.getReduccionRefinacion());
+        res.setAnalisisPorTmns(h.getAnalisisPorTmns());
+        res.setTrasladoPorTmns(h.getTrasladoPorTmns());
+        res.setPagoPorTm(h.getPagoPorTm());
+        res.setValorNeto(h.getValorNeto());
+        res.setIgv(h.getIgv());
+        res.setValorTotal(h.getValorTotal());
+        res.setDetraccion(h.getDetraccion());
+        res.setAlquilerPlanta(h.getAlquilerPlanta());
+        res.setAlquilerTotal(h.getAlquilerTotal());
+        res.setIsSynced(h.getIsSynced());
     }
 
     public ResponseGeneric eliminarCalculo(String idUser, String idCalculation) {
